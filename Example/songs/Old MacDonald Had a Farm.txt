@@ -1,0 +1,17 @@
+Title: Old MacDonald Had a Farm
+Tags: animals, verse
+
+Old MacDonald had a farm, E-I-E-I-O,
+And on that farm he had _[an animal]_, E-I-E-I-O,
+With a _[noise noise]_ here, and a _[noise noise]_ there,
+Here a _[noise]_, there a _[noise]_, everywhere a _[noise noise]_.
+
+**Verses**
+
+* Cow / moo
+* Horse / neigh
+* Pig / oink
+* Chicken / cluck
+* Dog / woof
+* Cat / meow
+* etc…
