@@ -2,15 +2,17 @@
 
 """Statically generates a songbook website (sorted and indexed in multiple ways) from a set of files containing labeled and tagged song lyrics."""
 
+import sys
 import os
 import logging
+import argparse
 import re
-import glob
 
 SONG_EXTENSION = ".txt"
 
 class Song:
     """A song with associated metadata."""
+
     def __init__(self, tags, body):
         self.tags = tags
         self.body = body
@@ -49,19 +51,37 @@ class Song:
     def __repr__(self):
         return "Song(tags=%s, body=%s)" % (repr(self.tags), repr(truncate(self.body, 50)))
 
-def songs_from_directory(path):
-    """Return an array of Song objects for all song files in a given directory."""
-    songs = []
-    for filename in os.listdir(path):
-        # TODO: Should we recurse into subdirectories?
-        filepath = os.path.join(path, filename)
-        if os.path.isfile(filepath):
-            name, ext = os.path.splitext(filepath)
-            if ext == SONG_EXTENSION:
-                song_file = open(filepath).read()
-                songs.append(Song.from_string(song_file))
-                # TODO: warn if song title's slug version and filename's slug version aren't the same.
-    return songs
+class SongBook:
+    def __init__(self, source_path):
+        self.source_path = source_path
+        songs_path = os.path.join(source_path, "songs")
+        if not os.path.exists(source_path):
+            logging.error("Could not find source directory '%s'" % source_path)
+            sys.exit(os.EX_NOINPUT)
+        if not os.path.isdir(source_path):
+            logging.error("Source '%s' is not a directory" % source_path)
+            sys.exit(os.EX_NOINPUT)
+        for required_path in (songs_path,):
+            if not os.path.isdir(required_path):
+                logging.error("Source directory does not contain a %s subdirectory", os.path.split(required_path)[-1])
+                sys.exit(os.EX_NOINPUT)
+        self.songs = self.songs_from_directory(songs_path)
+        logging.info("Parsed %d songs", len(self.songs))
+
+    def songs_from_directory(self, path):
+        """Return an array of Song objects for all song files in a given directory."""
+        songs = []
+        for filename in os.listdir(path):
+            # TODO: Should we recurse into subdirectories?
+            filepath = os.path.join(path, filename)
+            if os.path.isfile(filepath):
+                name, ext = os.path.splitext(filepath)
+                if ext == SONG_EXTENSION:
+                    song_file = open(filepath).read()
+                    songs.append(Song.from_string(song_file))
+                    # TODO: warn if song title's slug version and filename's slug version aren't the same.
+        return songs
+
 
 def truncate(string, max_length, suffix='…'):
     """Return a string of at most max_length characters, ending with a particular suffix if truncated."""
@@ -72,32 +92,31 @@ def truncate(string, max_length, suffix='…'):
         return string[:max_length]
     return string[:max_length - len(suffix)] + suffix
         
-
 def main():
-    # Late import, in case this project becomes a library, never to be run as main again.
-    import argparse
-    
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", help="Specify the directory containing songbook files (default current directory).", default=".")
     parser.add_argument("-v", "--verbose", help="Verbose mode. Output debugging messages while running.  Multiple -v options increase the verbosity, with a maximum of 2.", action="count", default=0)
+    parser.add_argument("--source", help="The directory containing songs, templates, etc. (Default: current directory).", default=".")
     
     args = parser.parse_args()
-    if not os.path.exists(args.source):
-        parser.error("Could not find source directory '%s'" % args.source)
-    if not os.path.isdir(args.source):
-        parser.error("Source '%s' is not a directory" % args.source)
 
     log_level = logging.WARNING
     if args.verbose == 1:
         log_level = logging.INFO
     elif args.verbose >= 2:
         log_level = logging.DEBUG
-    logging.basicConfig(level=log_level)
+    logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
 
-    songs = songs_from_directory(args.source)
-    print(songs)
-
-    logging.shutdown()
+    try:
+        songbook = SongBook(args.source)
+    except SystemExit:
+        pass # We're intentionally exiting, no logging required.
+    except KeyboardInterrupt:
+        logging.info("Keyboard interrupt, terminating application.")
+    except:
+        logging.exception("Failed with unhandled exception:")
+        raise
+    finally:
+        logging.shutdown()
 
 if __name__ == "__main__":
     main()
