@@ -8,6 +8,7 @@ import logging
 import argparse
 import re
 
+__version__ = "0.1"
 SONG_EXTENSION = ".txt"
 
 class Song:
@@ -94,12 +95,15 @@ def truncate(string, max_length, suffix='…'):
         
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("-v", "--verbose", help="Verbose mode. Output debugging messages while running.  Multiple -v options increase the verbosity, with a maximum of 2.", action="count", default=0)
     parser.add_argument("--source", help="The directory containing songs, templates, etc. (Default: current directory).", default=".")
+    parser.add_argument("--version", action="version", version="%%(prog)s %s" % __version__)
+    parser.add_argument("-q", "--quiet", help="Quiet mode.  Suppresses non-critical warnings.", action="store_true")
+    parser.add_argument("-v", "--verbose", help="Verbose mode. Output debugging messages while running. "
+                        "Multiple -v options increase the verbosity, with a maximum of 2.", action="count", default=0)
     
     args = parser.parse_args()
 
-    log_level = logging.WARNING
+    log_level = logging.ERROR if args.quiet else logging.WARNING
     if args.verbose == 1:
         log_level = logging.INFO
     elif args.verbose >= 2:
