@@ -7,6 +7,12 @@ import os
 import logging
 import argparse
 import re
+try:
+    import pystache
+    import markdown
+except ImportError as error:
+    print("ERROR: The required package \"%s\" was not found, please check the installation instructions." % error.name, file=sys.stderr)
+    sys.exit(-1)
 
 __version__ = "0.1"
 SONG_EXTENSION = ".txt"
@@ -16,7 +22,13 @@ class Song:
 
     def __init__(self, tags, body):
         self.tags = tags
-        self.body = body
+        self.raw_body = body
+        self.body = self.markdown(body)
+        if "Title" in self.tags:
+            self.title = self.tags["Title"]
+        else:
+            logging.warning("No title found for song \"%s\"" % self)
+            self.title = "Unknown"
 
     @classmethod
     def from_string(cls, file_contents):
@@ -44,6 +56,12 @@ class Song:
         body = "\n".join(lines[index:]).strip('\n')
         return cls(tags, body)
 
+    _shared_markdown = None
+    def markdown(self, text):
+        if not Song._shared_markdown:
+            Song._shared_markdown = markdown.Markdown(extensions=["markdown.extensions.nl2br", "markdown.extensions.smarty"],
+                                                      output_format = "html5")
+        return Song._shared_markdown.reset().convert(text)
 
     def __str__(self):
         tag_lines = ["%s: %s" % tag for tag in self.tags.items()]
@@ -56,16 +74,18 @@ class SongBook:
     def __init__(self, source_path):
         self.source_path = source_path
         songs_path = os.path.join(source_path, "songs")
+        template_path = os.path.join(source_path, "templates")
         if not os.path.exists(source_path):
             logging.error("Could not find source directory '%s'" % source_path)
             sys.exit(os.EX_NOINPUT)
         if not os.path.isdir(source_path):
             logging.error("Source '%s' is not a directory" % source_path)
             sys.exit(os.EX_NOINPUT)
-        for required_path in (songs_path,):
+        for required_path in (songs_path, template_path):
             if not os.path.isdir(required_path):
                 logging.error("Source directory does not contain a %s subdirectory", os.path.split(required_path)[-1])
                 sys.exit(os.EX_NOINPUT)
+        self.renderer = pystache.Renderer(search_dirs=template_path)
         self.songs = self.songs_from_directory(songs_path)
         logging.info("Parsed %d songs", len(self.songs))
 
@@ -83,6 +103,12 @@ class SongBook:
                     # TODO: warn if song title's slug version and filename's slug version aren't the same.
         return songs
 
+    def render_templates(self, path):
+        if not os.path.isdir(path):
+            os.mkdir(path)
+        with open(os.path.join(path, "songs.html"), 'w') as output_file:
+            output_file.write(self.renderer.render_name("songs", self))
+
 
 def truncate(string, max_length, suffix='…'):
     """Return a string of at most max_length characters, ending with a particular suffix if truncated."""
@@ -96,12 +122,16 @@ def truncate(string, max_length, suffix='…'):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", help="The directory containing songs, templates, etc. (Default: current directory).", default=".")
+    parser.add_argument("--destination", help="The directory in which to generate the songbook website (replacing any existing files). "
+                        "(Default: a 'site/' directory within the source directory.).")
     parser.add_argument("--version", action="version", version="%%(prog)s %s" % __version__)
     parser.add_argument("-q", "--quiet", help="Quiet mode.  Suppresses non-critical warnings.", action="store_true")
     parser.add_argument("-v", "--verbose", help="Verbose mode. Output debugging messages while running. "
                         "Multiple -v options increase the verbosity, with a maximum of 2.", action="count", default=0)
     
     args = parser.parse_args()
+    if not args.destination:
+        args.destination = os.path.join(args.source, "site")
 
     log_level = logging.ERROR if args.quiet else logging.WARNING
     if args.verbose == 1:
@@ -112,6 +142,7 @@ def main():
 
     try:
         songbook = SongBook(args.source)
+        songbook.render_templates(args.destination)
     except SystemExit:
         pass # We're intentionally exiting, no logging required.
     except KeyboardInterrupt:

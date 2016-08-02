@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  {{> common-head}}
+  <title>Songs</title>
+</head>
+<body>
+  <h1>Songs!</h1>
+  {{#songs}}
+  <h2>{{title}}</h2>
+  {{& body}}
+  {{/songs}}
+</body>
+<html>
