@@ -7,6 +7,7 @@ import os
 import logging
 import argparse
 import re
+import unicodedata
 try:
     import pystache
     import markdown
@@ -20,19 +21,45 @@ SONG_EXTENSION = ".txt"
 class Song:
     """A song with associated metadata."""
 
-    def __init__(self, tags, body):
-        self.tags = tags
-        self.raw_body = body
-        self.body = self.markdown(body)
-        if "Title" in self.tags:
-            self.title = self.tags["Title"]
+    def __init__(self, tags, lyrics, filename=None):
+        """Create a Song object given a list of tags and the lyrics.
+
+        tags: a list of key-value pairs.
+        lyrics: The lyrics of the song, as a block of Markdown-formatted text.
+        filename: Optional, to be used in debugging messages, for missing titles, etc.
+        """
+        debugging_filename = filename if filename != None else "<no file>"
+        self.raw_lyrics = lyrics
+        self.lyrics = self.markdown(lyrics)
+        self.tags = {}
+        single_tags = set(["copyright", "source", "title", "tune"])
+        array_tags = set(["aka", "see", "tags"])
+        all_tags = single_tags.union(array_tags)
+        for key, value in tags:
+            tag = key.lower()
+            if tag not in all_tags:
+                logging.warning("Ignoring unrecognized tag: \"%s\" in file \"%s\"." % (key, debugging_filename))
+                continue
+            if tag in self.tags:
+                logging.warning("Ignoring duplicate tag \"%s\" found in file \"%s\"." % (tag, debugging_filename))
+                continue
+            if tag in array_tags:
+                value = [v.strip() for v in value.split(",")]
+            self.tags[tag] = value
+        if "title" in self.tags:
+            self.title = self.tags["title"]
         else:
-            logging.warning("No title found for song \"%s\"" % self)
-            self.title = "Unknown"
+            if filename:
+                self.title = filename.replace("_", " ")
+                if self.title.endswith(SONG_EXTENSION):
+                    self.title = self.title[:-len(SONG_EXTENSION)]
+            else:
+                self.title = "Unknown"
+            logging.warning("No title found in file \"%s\".  Falling back on \"%s\"." % (debugging_filename, self.title))
 
     @classmethod
-    def from_string(cls, file_contents):
-        """Parses the contents of a song file and generates a Song object
+    def from_string(cls, file_contents, filename=None):
+        """Parse the contents of a song file and generate a Song object.
         
         Song files consist of any number of lines containing tags followed by the lyrics of the song.
 
@@ -44,17 +71,16 @@ class Song:
         first line of the lyrics would otherwise be parsed as a tag.
         """
         lines = file_contents.splitlines()
-        tags = {}
-        body = ""
+        tags = []
         for index, line in enumerate(lines):
             parts = line.split(':', 1)
             if len(parts) < 2:
                 break
             tag = parts[0].strip()
             value = parts[1].strip()
-            tags[tag] = value
+            tags.append((tag, value))
         body = "\n".join(lines[index:]).strip('\n')
-        return cls(tags, body)
+        return cls(tags, body, filename)
 
     _shared_markdown = None
     def markdown(self, text):
@@ -69,6 +95,17 @@ class Song:
 
     def __repr__(self):
         return "Song(tags=%s, body=%s)" % (repr(self.tags), repr(truncate(self.body, 50)))
+
+    def slug(self):
+        return slugify(self.title)
+
+    def __getattr__(self, name):
+        prefix = "has_tag_"
+        if name.startswith(prefix):
+            key = name[len(prefix):]
+            return key in self.tags and bool(self.tags[key])
+        return super().__getattr__(name)
+
 
 class SongBook:
     def __init__(self, source_path):
@@ -99,7 +136,7 @@ class SongBook:
                 name, ext = os.path.splitext(filepath)
                 if ext == SONG_EXTENSION:
                     song_file = open(filepath).read()
-                    songs.append(Song.from_string(song_file))
+                    songs.append(Song.from_string(song_file, filename=filename))
                     # TODO: warn if song title's slug version and filename's slug version aren't the same.
         return songs
 
@@ -118,6 +155,16 @@ def truncate(string, max_length, suffix='…'):
     if len(suffix) >= max_length:
         return string[:max_length]
     return string[:max_length - len(suffix)] + suffix
+
+def slugify(string):
+    special_translation = string.lower().translate({'ø':'o', 'ß':'ss', 'œ':'ae',
+                                                    '–':'-','—':'-',
+                                                    '”':'"','“':'"','’':"'",'‘':"'"})
+    decomposed = unicodedata.normalize('NFKD', special_translation)
+    ascii_only = decomposed.encode('ascii', 'ignore').decode('ascii')
+    alphanum = re.sub(r"\W+", "-", ascii_only).strip('-')
+    return alphanum
+
         
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
