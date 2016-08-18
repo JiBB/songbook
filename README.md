@@ -9,7 +9,7 @@ Statically generates a songbook website (sorted and indexed in multiple ways) fr
 
 Songbook requires Python 3, as well as the following packages:
 
-* [pystache](https://github.com/defunkt/pystache)
+* [Jinja2](http://jinja.pocoo.org)
 * [Markdown](http://pythonhosted.org/Markdown/)
 
 ### Installing
@@ -24,7 +24,7 @@ source venv/bin/activate
 Then use pip to install the required libraries:
 
 ```
-pip3 install pystache
+pip3 install jinja2
 pip3 install Markdown
 ```
 
@@ -45,7 +45,16 @@ In the directory you run SongBook in/on, it expects to find several files and di
 
 The `songs` directory is required, and contains one file for each song to be featured in the final website.  Each song file consists  of any number of lines containing tags followed by the lyrics of the song.
 
-A tag line consists of a key separated from it's value by a colon.  All leading and trailing whitespace is stripped from tag's keys and  values as well as from the lyrics, so the end of tags and the beginning of the lyrics can always be triggered by a blank line, even if the first line of the lyrics would otherwise be parsed as a tag (contains a `:`).  Currently, only the `Title:` tag is used.
+A tag line consists of a key separated from it's value by a colon.  All leading and trailing whitespace is stripped from tag's keys and  values as well as from the lyrics, so the end of tags and the beginning of the lyrics can always be triggered by a blank line, even if the first line of the lyrics would otherwise be parsed as a tag (contains a `:`).
+
+The following tags are currently supported:
+
+* `Title:` The title of the song.
+* `AKA:` A comma separated list of alternate titles for the song.
+* `See:` A comma separated list of the titles of related songs ("See Also")
+* `Tags:` A comma separated list of categories into which the song falls.
+* `Source:` A description of who wrote the song.
+* `Copyright:` Copyright information for non-public-domain songs.
 
 The lyrics of the song are interpreted as [Markdown](http://daringfireball.net/projects/markdown/syntax)-formatted text, with the extension that single line-breaks remain as `<br>` tags in the output (while double line-breaks still make new paragraphs), making it easier to correctly format lyrics.  For example, this:
 
@@ -71,13 +80,13 @@ becomes:
 
 #### templates
 
-The `templates` directory is required, and contains template files into which the songs and their tags are inserted when rendered.  These template files are html code with [Mustache](https://mustache.github.io) templating system commands in them which will be expanded using the data from the songs parsed out of the `songs` directory.
+The `templates` directory is required, and contains template files into which the songs and their tags are inserted when rendered.  These template files are html code with [Jinja](http://jinja.pocoo.org/docs/dev/templates/) templating system commands in them which will be expanded using the data from the songs parsed out of the `songs` directory.
 
 The required templates are:
 
-* `songs.mustache` — Rendered to `songs.html` in the final website, to contain all the songs in alphabetical order by title.
+* `songs.html` — Rendered to `songs.html` in the final website, to contain all the songs in alphabetical order by title.
 
-Other templates in the directory will not be used directly, but can be included in the processed templates as [partials](http://mustache.github.io/mustache.5.html#Partials) containing content common to multiple templates. (E.g. `{{> header}}` to process and include `header.mustache` at that point in the file.)
+Other templates in the directory will not be used directly, but can be used with the processed templates through [template inheritance](http://jinja.pocoo.org/docs/dev/templates/#template-inheritance) for content common to multiple templates. (E.g. the `common.html` template in the Example Songbook directory that other templates inherit from.)
 
 
 ### Running SongBook

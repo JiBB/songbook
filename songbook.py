@@ -9,8 +9,8 @@ import argparse
 import re
 import unicodedata
 try:
-    import pystache
     import markdown
+    import jinja2
 except ImportError as error:
     print("ERROR: The required package \"%s\" was not found, please check the installation instructions." % error.name, file=sys.stderr)
     sys.exit(-1)
@@ -91,21 +91,14 @@ class Song:
 
     def __str__(self):
         tag_lines = ["%s: %s" % tag for tag in self.tags.items()]
-        return "%s\n\n%s" % ("\n".join(tag_lines), truncate(self.body, 50))
+        return "%s\n\n%s" % ("\n".join(tag_lines), truncate(self.raw_lyrics, 50))
 
     def __repr__(self):
-        return "Song(tags=%s, body=%s)" % (repr(self.tags), repr(truncate(self.body, 50)))
+        return "Song(tags=%s, raw_lyrics=%s)" % (repr(self.tags), repr(truncate(self.raw_lyrics, 50)))
 
+    @property
     def slug(self):
         return slugify(self.title)
-
-    def __getattr__(self, name):
-        prefix = "has_tag_"
-        if name.startswith(prefix):
-            key = name[len(prefix):]
-            return key in self.tags and bool(self.tags[key])
-        return super().__getattr__(name)
-
 
 class SongBook:
     def __init__(self, source_path):
@@ -122,7 +115,7 @@ class SongBook:
             if not os.path.isdir(required_path):
                 logging.error("Source directory does not contain a %s subdirectory", os.path.split(required_path)[-1])
                 sys.exit(os.EX_NOINPUT)
-        self.renderer = pystache.Renderer(search_dirs=template_path)
+        self.templates = jinja2.Environment(loader=jinja2.FileSystemLoader(template_path))
         self.songs = self.songs_from_directory(songs_path)
         logging.info("Parsed %d songs", len(self.songs))
 
@@ -144,7 +137,9 @@ class SongBook:
         if not os.path.isdir(path):
             os.mkdir(path)
         with open(os.path.join(path, "songs.html"), 'w') as output_file:
-            output_file.write(self.renderer.render_name("songs", self))
+            template = self.templates.get_template("songs.html")
+            html = template.render(songbook=self)
+            output_file.write(html)
 
 
 def truncate(string, max_length, suffix='…'):
