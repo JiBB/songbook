@@ -70,7 +70,7 @@ It's got two [verses]!
 
 becomes:
 
->A silly _song_,  
+>A silly _song_,
 >With **crazy** lyrics.
 >
 >It's got two verses!
