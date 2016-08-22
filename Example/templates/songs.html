@@ -1,24 +1,38 @@
 {% extends "common.html" %}
+{% block title %}{{ super() }}—Alphabetical{% endblock %}
 {% block content %}
-  <h1>Songs!</h1>
+  <header>
+    <h1>All Nursery Rhymes</h1>
+  </header>
   {% for song in songbook.songs %}
-    <h2><a name="{{song.slug}}">{{song.tags["title"]}}</a></h2>
-    {% if song.tags["see"] %}
-    <h3>See Also:</h3>
-    <ul>{% for s in song.tags["see"] %}<li>{{s}}</li>{% endfor %}</ul>
-    {% endif %}
-    {% if song.tags["tags"] %}
-    <h3>Categories:</h3>
-    <ul>{% for t in song.tags["tags"] %}<li>{{t}}</li>{% endfor %}</ul>
-    {% endif %}
-    {% if song.tags["aka"] %}
-    <h3>Also known as:</h3>
-    <ul>{% for a in song.tags["aka"] %}<li>{{a}}</li>{% endfor %}</ul>
-    {% endif %}
-    {% if song.tags["tune"] %}<h3>To the tune of:</h3> <p>{{song.tags["tune"]}}</p>{% endif %}
-    {% if song.tags["source"] %}<h3>Source:</h3> <p>{{song.tags["source"]}}</p>{% endif %}
-    {% if song.tags["copyright"] %}<h3>Copyright:</h3> <p>{{song.tags["copyright"]}}</p>{% endif %}
-    {{song.lyrics}}
+    <article class="song">
+      <h2><a name="{{song.slug}}">{{song.tags["title"]}}</a></h2>
+      <dl class="metadata">
+        {% if song.tags["see"] %}
+          <dt>See also</dt>
+          <dd>{{ song.tags["see"] | join(", ") }}</dd>
+        {% endif %}
+        {% if song.tags["tags"] %}
+          <dt>Categories</dt>
+          <dd>{{ song.tags["tags"] | join(", ") }}</dd>
+        {% endif %}
+        {% if song.tags["aka"] %}
+          <dt>Also known as</dt>
+          <dd>{{ song.tags["aka"] | join(", ") }}</dd>
+        {% endif %}
+        {% if song.tags["tune"] %}
+          <dt>To the tune of</dt> <dd>{{song.tags["tune"]}}</dd>
+        {% endif %}
+        {% if song.tags["source"] %}
+          <dt>Source</dt> <dd>{{song.tags["source"]}}</dd>
+        {% endif %}
+        {% if song.tags["copyright"] %}
+          <dt>Copyright</dt> <dd>{{song.tags["copyright"]}}</dd>
+        {% endif %}
+      </dl>
+      <div class="lyrics">
+        {{song.lyrics}}
+      </div> <!-- lyrics -->
+    </article>
   {% endfor %}
-
-{% endblock %}
+{% endblock content %}

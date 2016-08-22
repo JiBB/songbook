@@ -3,7 +3,38 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Songs</title>
+  <title>{% block title %}Nursery Rhymes{% endblock %}</title>
+  <style>
+    .metadata dt {
+      float: left;
+      clear: left;
+      width: 7em;
+      text-align: right;
+      font-weight: bold;
+    }
+    .metadata dt:after {
+      content: ":";
+    }
+    .metadata dd {
+      margin: 0 0 0 7.5em;
+      padding: 0 0 0.5em 0;
+    }
+    .song {
+      margin: 0.5em;
+    }
+    .lyrics {
+      border-left: thin solid lightgrey;
+      padding-left: 0.5em;
+    }
+    .song:after {
+      content: "";
+      display: block;
+      height: 1px;
+      width: 40%;
+      margin: 1em 0em;
+      border-bottom: thin solid grey;
+    }
+  </style>
 </head>
 <body>
   {% block content %}{% endblock %}
