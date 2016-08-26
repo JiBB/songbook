@@ -56,6 +56,12 @@ class Song:
             else:
                 self.title = "Unknown"
             logging.warning("No title found in file \"%s\".  Falling back on \"%s\"." % (debugging_filename, self.title))
+        self.copyright = self.tags.get("copyright", None)
+        self.source = self.tags.get("source", None)
+        self.tune = self.tags.get("tune", None)
+        self.aka = self.tags.get("aka", [])
+        self.see = []
+        self.categories = []
 
     @classmethod
     def from_string(cls, file_contents, filename=None):
@@ -90,15 +96,14 @@ class Song:
         return Song._shared_markdown.reset().convert(text)
 
     def __str__(self):
-        tag_lines = ["%s: %s" % tag for tag in self.tags.items()]
-        return "%s\n\n%s" % ("\n".join(tag_lines), truncate(self.raw_lyrics, 50))
+        return "<Song \"%s\">" % self.title
 
     def __repr__(self):
-        return "Song(tags=%s, raw_lyrics=%s)" % (repr(self.tags), repr(truncate(self.raw_lyrics, 50)))
+        return "<Song \"%s\" (%s)>" % (self.title, self.slug)
 
     @property
     def slug(self):
-        return slugify(self.title)
+        return slugify(self.title) + getattr(self, "uniquing_string", "")
 
 class SongBook:
     def __init__(self, source_path):
@@ -115,9 +120,10 @@ class SongBook:
             if not os.path.isdir(required_path):
                 logging.error("Source directory does not contain a %s subdirectory", os.path.split(required_path)[-1])
                 sys.exit(os.EX_NOINPUT)
-        self.templates = jinja2.Environment(loader=jinja2.FileSystemLoader(template_path))
         self.songs = self.songs_from_directory(songs_path)
         logging.info("Parsed %d songs", len(self.songs))
+        self.link_songs_and_categories()
+        self.templates = jinja2.Environment(loader=jinja2.FileSystemLoader(template_path))
 
     def songs_from_directory(self, path):
         """Return an array of Song objects for all song files in a given directory."""
@@ -132,6 +138,66 @@ class SongBook:
                     songs.append(Song.from_string(song_file, filename=filename))
                     # TODO: warn if song title's slug version and filename's slug version aren't the same.
         return songs
+
+    def link_songs_and_categories(self):
+        songs_by_slug = {}
+        # Add all songs by their default title.
+        for song in self.songs:
+            slug = slugify(song.title)
+            if slug not in songs_by_slug:
+                songs_by_slug[slug] = []
+            songs_by_slug[slug].append(song)
+        # Make sure they all have a unique slug.
+        for slug, shared_slug_songs in songs_by_slug.items():
+            uniquing_number = 2
+            for song in shared_slug_songs[1:]:
+                while True:
+                    song.uniquing_string = "-%d" % uniquing_number
+                    uniquing_number += 1
+                    if song.slug not in songs_by_slug:
+                        break
+                logging.info("Multiple songs with the slug \"%s\". \"%s\" is using the slug \"%s\" instead." % (slug, song.title, song.slug))
+        # Add songs by any "AKA" titles
+        for song in self.songs:
+            for alt_title in song.tags.get("aka", []):
+                slug = slugify(alt_title)
+                if slug not in songs_by_slug:
+                    songs_by_slug[slug] = []
+                songs_by_slug[slug].append(song)
+
+        def song_for_title(title):
+            slug = slugify(title)
+            if slug not in songs_by_slug:
+                logging.info("Title \"%s\" (%s) matches no songs." % (title, slug))
+                return None
+            songs = songs_by_slug[slug]
+            if len(songs) > 1:
+                title_songs = [s for s in songs if title == song.title]
+                songs = [s for s in songs if title == song.title or title in song.aka]
+                if len(aka_songs) > len(title_songs) >= 1:
+                    logging.warning(("Title \"%s\" is the title of a song and the alternate title of a song (AKA: tag).  "
+                                                                                    "Only using the direct title.") % title)
+                    songs = title_songs
+                # TODO: Normalize unicode titles?
+                # TODO: Should we check different capitalizations?  Or stick to strict matching if multiple songs share a slug?
+            if len(songs) == 0:
+                logging.warning("Title \"%s\" has no exact matching song, but multiple songs share the same slug (%s)" % (title, slug))
+                return None
+            elif len(songs) == 1:
+                return songs[0]
+            else:
+                # TODO: Should we error on duplicate titles here or elsewhere?
+                logging.warning("Title \"\" matches two songs.  Picking one arbitrarily." % title)
+                return songs[0]
+
+        for slug, songs in songs_by_slug.items():
+        for song in self.songs:
+            song.see = []
+            for title in song.tags.get("see", []):
+                see_song = song_for_title(title)
+                if not see_song:
+                    logging.info("\"%s\" references song \"%s\", but no matching song found.")
+                song.see.append((title, see_song))
 
     def render_templates(self, path):
         if not os.path.isdir(path):

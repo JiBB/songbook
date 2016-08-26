@@ -6,28 +6,38 @@
   </header>
   {% for song in songbook.songs %}
     <article class="song">
-      <h2><a name="{{song.slug}}">{{song.tags["title"]}}</a></h2>
+      <h2><a name="{{song.slug}}">{{song.title}}</a></h2>
       <dl class="metadata">
-        {% if song.tags["see"] %}
+        {% if song.see %}
           <dt>See also</dt>
-          <dd>{{ song.tags["see"] | join(", ") }}</dd>
+          <dd>
+            {%- set comma = joiner(", ") -%}
+            {%- for title, see_song in song.see -%}
+              {{ comma() }}
+              {%- if see_song -%}
+                <a href="#{{see_song.slug}}">{{title}}</a>
+              {%- else -%}
+                {{title}}
+              {%- endif %}
+            {%- endfor -%}
+          </dd>
         {% endif %}
         {% if song.tags["tags"] %}
           <dt>Categories</dt>
           <dd>{{ song.tags["tags"] | join(", ") }}</dd>
         {% endif %}
-        {% if song.tags["aka"] %}
+        {% if song.aka %}
           <dt>Also known as</dt>
-          <dd>{{ song.tags["aka"] | join(", ") }}</dd>
+          <dd>{{ song.aka | join(", ") }}</dd>
         {% endif %}
-        {% if song.tags["tune"] %}
-          <dt>To the tune of</dt> <dd>{{song.tags["tune"]}}</dd>
+        {% if song.tune %}
+          <dt>To the tune of</dt> <dd>{{song.tune}}</dd>
         {% endif %}
-        {% if song.tags["source"] %}
-          <dt>Source</dt> <dd>{{song.tags["source"]}}</dd>
+        {% if song.source %}
+          <dt>Source</dt> <dd>{{song.source}}</dd>
         {% endif %}
-        {% if song.tags["copyright"] %}
-          <dt>Copyright</dt> <dd>{{song.tags["copyright"]}}</dd>
+        {% if song.copyright %}
+          <dt>Copyright</dt> <dd>{{song.copyright}}</dd>
         {% endif %}
       </dl>
       <div class="lyrics">
