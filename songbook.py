@@ -2,6 +2,8 @@
 
 """Statically generates a songbook website (sorted and indexed in multiple ways) from a set of files containing labeled and tagged song lyrics."""
 
+__version__ = "0.1"
+
 import sys
 import os
 import logging
@@ -15,7 +17,6 @@ except ImportError as error:
     print("ERROR: The required package \"%s\" was not found, please check the installation instructions." % error.name, file=sys.stderr)
     sys.exit(-1)
 
-__version__ = "0.1"
 SONG_EXTENSION = ".txt"
 
 class Song:
@@ -165,6 +166,19 @@ class SongBook:
                     songs_by_slug[slug] = []
                 songs_by_slug[slug].append(song)
 
+        category_names = {}
+        for song in self.songs:
+            for category_name in song.tags.get("tags", []):
+                category_slug = slugify(category_name)
+                if category_slug not in category_names:
+                    category_names[category_slug] = collections.Counter()
+                category_names[category_slug][category_name] += 1
+        self.categories = {}
+        for category_slug in category_names:
+            most_common_name = 
+            category = Category(category
+            self.categories[category_slug] = 
+
         def song_for_title(title):
             slug = slugify(title)
             if slug not in songs_by_slug:
@@ -190,7 +204,6 @@ class SongBook:
                 logging.warning("Title \"\" matches two songs.  Picking one arbitrarily." % title)
                 return songs[0]
 
-        for slug, songs in songs_by_slug.items():
         for song in self.songs:
             song.see = []
             for title in song.tags.get("see", []):
@@ -198,6 +211,9 @@ class SongBook:
                 if not see_song:
                     logging.info("\"%s\" references song \"%s\", but no matching song found.")
                 song.see.append((title, see_song))
+            song.categories = []
+            for tag in song.tags.get("tags", []):
+                # LOOK UP AND SET CATEGORIES.
 
     def render_templates(self, path):
         if not os.path.isdir(path):
