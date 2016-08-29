@@ -1,17 +1,11 @@
 {% extends "common.html" %}
-{% block title %}{{ super() }}—By Category{% endblock %}
+{% block title %}{{ super() }}—Category: {{category.name | title}}{% endblock %}
 {% block content %}
   <header>
-    <h1>All Nursery Rhymes by Category</h1>
+    <h1>{{ category.name | title }} Songs</h1>
   </header>
-  {% for category in songbook.categories.values() %}
-    <section>
-    <h1><a name="{{category.slug}}" href="categories/{{category.slug}}.html">{{ category.name | title }}</a></h1>
   {% for song in category.songs %}
     <article class="song">
-      {% if not song.categories or song.categories[0][1] != category %}
-        <h2><a href="#{{song.slug}}">{{song.title}}</a></h2>
-      {% else %}
       <h2><a name="{{song.slug}}" href="songs/{{song.slug}}.html">{{song.title}}</a></h2>
       <dl class="metadata">
         {% if song.see %}
@@ -38,7 +32,7 @@
                 {%- if song_category == category -%}
                   <strong>{{name}}</strong>
                 {%- else -%}
-                  <a href="#{{song_category.slug}}">{{name}}</a>
+                  <a href="categories/{{song_category.slug}}.html">{{name}}</a>
                 {%- endif -%}
               {%- else -%}
                 {{name}}
@@ -62,9 +56,6 @@
       <div class="lyrics">
         {{song.lyrics}}
       </div> <!-- lyrics -->
-    {% endif %}
     </article>
-  {% endfor %}
-    </section>
   {% endfor %}
 {% endblock content %}

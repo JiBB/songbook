@@ -263,6 +263,16 @@ class SongBook:
             template = self.templates.get_template("categories.html")
             html = template.render(songbook=self)
             output_file.write(html)
+        for category in self.categories.values():
+            with open(os.path.join(categories_dir, "%s.html" % category.slug), 'w') as output_file:
+                template = self.templates.get_template("category.html")
+                html = template.render(songbook=self, category=category)
+                output_file.write(html)
+        for song in self.songs:
+            with open(os.path.join(songs_dir, "%s.html" % song.slug), 'w') as output_file:
+                template = self.templates.get_template("song.html")
+                html = template.render(songbook=self, song=song)
+                output_file.write(html)
 
 
 def truncate(string, max_length, suffix='…'):
