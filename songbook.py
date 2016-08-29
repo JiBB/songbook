@@ -10,6 +10,8 @@ import logging
 import argparse
 import re
 import unicodedata
+import collections
+
 try:
     import markdown
     import jinja2
@@ -45,7 +47,7 @@ class Song:
                 logging.warning("Ignoring duplicate tag \"%s\" found in file \"%s\"." % (tag, debugging_filename))
                 continue
             if tag in array_tags:
-                value = [v.strip() for v in value.split(",")]
+                value = [v.strip() for v in value.split(",") if v.strip()]
             self.tags[tag] = value
         if "title" in self.tags:
             self.title = self.tags["title"]
@@ -105,6 +107,23 @@ class Song:
     @property
     def slug(self):
         return slugify(self.title) + getattr(self, "uniquing_string", "")
+
+
+class Category:
+    def __init__(self, name):
+        self.name = name
+        self.songs = []
+
+    def __str__(self):
+        return "<Category \"%s\">" % self.name
+
+    def __repr__(self):
+        return "<Category \"%s\" (%s)>" % (self.name, self.slug)
+
+    @property
+    def slug(self):
+        return slugify(self.name)
+
 
 class SongBook:
     def __init__(self, source_path):
@@ -166,6 +185,7 @@ class SongBook:
                     songs_by_slug[slug] = []
                 songs_by_slug[slug].append(song)
 
+        # Get all the category names
         category_names = {}
         for song in self.songs:
             for category_name in song.tags.get("tags", []):
@@ -173,12 +193,14 @@ class SongBook:
                 if category_slug not in category_names:
                     category_names[category_slug] = collections.Counter()
                 category_names[category_slug][category_name] += 1
+        # Create 1 category/slug, w/ most common name.
         self.categories = {}
-        for category_slug in category_names:
-            most_common_name = 
-            category = Category(category
-            self.categories[category_slug] = 
+        for slug, names in category_names.items():
+            most_common_name = names.most_common(1)[0][0]
+            category = Category(most_common_name)
+            self.categories[slug] = category
 
+        # Helper functions for looking up songs/categories.
         def song_for_title(title):
             slug = slugify(title)
             if slug not in songs_by_slug:
@@ -204,22 +226,41 @@ class SongBook:
                 logging.warning("Title \"\" matches two songs.  Picking one arbitrarily." % title)
                 return songs[0]
 
+        def category_for_tag(name):
+            return self.categories.get(slugify(name), None)
+
+        # Set song.see and song.categories w/ correct referenced objects
         for song in self.songs:
             song.see = []
             for title in song.tags.get("see", []):
                 see_song = song_for_title(title)
                 if not see_song:
-                    logging.info("\"%s\" references song \"%s\", but no matching song found.")
+                    logging.info("\"%s\" references song \"%s\", but no matching song found." % (song.title, title))
                 song.see.append((title, see_song))
             song.categories = []
             for tag in song.tags.get("tags", []):
-                # LOOK UP AND SET CATEGORIES.
+                category = category_for_tag(tag)
+                song.categories.append((tag, category))
+                category.songs.append(song)
 
-    def render_templates(self, path):
-        if not os.path.isdir(path):
-            os.mkdir(path)
-        with open(os.path.join(path, "songs.html"), 'w') as output_file:
+        logging.info("Songs in %d categories: %s" % (len(self.categories),
+                                                     {slug:len(category.songs) for slug, category in self.categories.items()}))
+        uncategorized = [song.title for song in self.songs if not song.categories]
+        if uncategorized:
+            logging.info("%d songs have no categories: %s" % (len(uncategorized), uncategorized))
+
+    def render_templates(self, output_path):
+        songs_dir = os.path.join(output_path, "songs")
+        categories_dir = os.path.join(output_path, "categories")
+        for path in (output_path, songs_dir, categories_dir):
+            if not os.path.isdir(path):
+                os.mkdir(path)
+        with open(os.path.join(output_path, "songs.html"), 'w') as output_file:
             template = self.templates.get_template("songs.html")
+            html = template.render(songbook=self)
+            output_file.write(html)
+        with open(os.path.join(output_path, "categories.html"), 'w') as output_file:
+            template = self.templates.get_template("categories.html")
             html = template.render(songbook=self)
             output_file.write(html)
 
