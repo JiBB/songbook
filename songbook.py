@@ -249,30 +249,24 @@ class SongBook:
         if uncategorized:
             logging.info("%d songs have no categories: %s" % (len(uncategorized), uncategorized))
 
-    def render_templates(self, output_path):
-        songs_dir = os.path.join(output_path, "songs")
-        categories_dir = os.path.join(output_path, "categories")
-        for path in (output_path, songs_dir, categories_dir):
+    def render_templates(self, output_dir):
+        def render_template(output_path, template_name, **context):
+            template = self.templates.get_template(template_name)
+            html = template.render(**context)
+            with open(output_path, 'w') as output_file:
+                output_file.write(html)
+
+        songs_dir = os.path.join(output_dir, "songs")
+        categories_dir = os.path.join(output_dir, "categories")
+        for path in (output_dir, songs_dir, categories_dir):
             if not os.path.isdir(path):
                 os.mkdir(path)
-        with open(os.path.join(output_path, "songs.html"), 'w') as output_file:
-            template = self.templates.get_template("songs.html")
-            html = template.render(songbook=self)
-            output_file.write(html)
-        with open(os.path.join(output_path, "categories.html"), 'w') as output_file:
-            template = self.templates.get_template("categories.html")
-            html = template.render(songbook=self)
-            output_file.write(html)
+        render_template(os.path.join(output_dir, "songs.html"), "songs.html", songbook=self)
+        render_template(os.path.join(output_dir, "categories.html"), "categories.html", songbook=self)
         for category in self.categories.values():
-            with open(os.path.join(categories_dir, "%s.html" % category.slug), 'w') as output_file:
-                template = self.templates.get_template("category.html")
-                html = template.render(songbook=self, category=category)
-                output_file.write(html)
+            render_template(os.path.join(categories_dir, "%s.html" % category.slug), "category.html", songbook=self, category=category)
         for song in self.songs:
-            with open(os.path.join(songs_dir, "%s.html" % song.slug), 'w') as output_file:
-                template = self.templates.get_template("song.html")
-                html = template.render(songbook=self, song=song)
-                output_file.write(html)
+            render_template(os.path.join(songs_dir, "%s.html" % song.slug), "song.html", songbook=self, song=song)
 
 
 def truncate(string, max_length, suffix='…'):
