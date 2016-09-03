@@ -6,6 +6,7 @@ __version__ = "0.1"
 
 import sys
 import os
+import shutil
 import logging
 import argparse
 import re
@@ -250,11 +251,13 @@ class SongBook:
             logging.info("%d songs have no categories: %s" % (len(uncategorized), uncategorized))
 
     def render_templates(self, output_dir):
+        created_files = set()
         def render_template(output_path, template_name, **context):
             template = self.templates.get_template(template_name)
             html = template.render(**context)
             with open(output_path, 'w') as output_file:
                 output_file.write(html)
+            created_files.add(output_path)
 
         songs_dir = os.path.join(output_dir, "songs")
         categories_dir = os.path.join(output_dir, "categories")
@@ -267,6 +270,32 @@ class SongBook:
             render_template(os.path.join(categories_dir, "%s.html" % category.slug), "category.html", songbook=self, category=category)
         for song in self.songs:
             render_template(os.path.join(songs_dir, "%s.html" % song.slug), "song.html", songbook=self, song=song)
+        return created_files
+
+    def delete_non_overwritten_files(self, output_dir, created_files):
+        created_files_and_dirs = set(created_files)
+        for path in created_files:
+            relpath = os.path.relpath(path, output_dir)
+            parent, _ = os.path.split(relpath)
+            while parent:
+                created_files_and_dirs.add(os.path.join(output_dir, parent))
+                parent, _ = os.path.split(parent)
+        # TODO: Add config for set of paths to save?
+        for dirpath, dirnames, filenames in os.walk(output_dir):
+            used_dirs = []
+            for subdirname in dirnames:
+                subdirpath = os.path.join(dirpath, subdirname)
+                if subdirpath in created_files_and_dirs:
+                    used_dirs.append(subdirname)
+                else:
+                    shutil.rmtree(subdirpath)
+                    logging.debug("Clearing unused dir. from output dir: \"%s\"" % subdirpath)
+            dirnames[:] = used_dirs # Only recurse into the directories we don't delete.
+            for filename in filenames:
+                filepath = os.path.join(dirpath, filename)
+                if filepath not in created_files_and_dirs:
+                    os.remove(filepath)
+                    logging.debug("Clearing unused file from output dir: \"%s\"" % filepath)
 
 
 def truncate(string, max_length, suffix='…'):
@@ -311,7 +340,8 @@ def main():
 
     try:
         songbook = SongBook(args.source)
-        songbook.render_templates(args.destination)
+        created_files = songbook.render_templates(args.destination)
+        songbook.delete_non_overwritten_files(args.destination, created_files)
     except SystemExit:
         pass # We're intentionally exiting, no logging required.
     except KeyboardInterrupt:
