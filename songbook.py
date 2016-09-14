@@ -205,7 +205,6 @@ class SongBook:
         def song_for_title(title):
             slug = slugify(title)
             if slug not in songs_by_slug:
-                logging.info("Title \"%s\" (%s) matches no songs." % (title, slug))
                 return None
             songs = songs_by_slug[slug]
             if len(songs) > 1:
@@ -236,7 +235,7 @@ class SongBook:
             for title in song.tags.get("see", []):
                 see_song = song_for_title(title)
                 if not see_song:
-                    logging.info("\"%s\" references song \"%s\", but no matching song found." % (song.title, title))
+                    logging.info("\"%s\" references song \"%s\" (%s), but no matching song found." % (song.title, title, slugify(title)))
                 song.see.append((title, see_song))
             song.categories = []
             for tag in song.tags.get("tags", []):
