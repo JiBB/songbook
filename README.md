@@ -109,6 +109,12 @@ Or specify paths to the source and destination directory:
 songbook --source <source> --destination <destination>
 ```
 
+By default, all contents of the output directory not handled by SongBook will be cleared.  If there are any files you would like not to be clobbered (version control, etc), you can specify their paths relative to the output directory.
+
+```
+songbook --keep .git
+```
+
 
 ## Authors
 

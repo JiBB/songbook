@@ -255,45 +255,59 @@ class SongBook:
         def render_template(output_path, template_name, **context):
             template = self.templates.get_template(template_name)
             html = template.render(**context)
-            with open(output_path, 'w') as output_file:
+            with open(os.path.join(output_dir, output_path), 'w') as output_file:
                 output_file.write(html)
             created_files.add(output_path)
 
-        songs_dir = os.path.join(output_dir, "songs")
-        categories_dir = os.path.join(output_dir, "categories")
-        for path in (output_dir, songs_dir, categories_dir):
-            if not os.path.isdir(path):
-                os.mkdir(path)
-        render_template(os.path.join(output_dir, "songs.html"), "songs.html", songbook=self)
-        render_template(os.path.join(output_dir, "categories.html"), "categories.html", songbook=self)
+        songs_dir = "songs"
+        categories_dir = "categories"
+        for path in ("", songs_dir, categories_dir):
+            dir_path = os.path.join(output_dir, path)
+            if not os.path.isdir(dir_path):
+                os.mkdir(dir_path)
+        render_template("songs.html", "songs.html", songbook=self)
+        render_template("categories.html", "categories.html", songbook=self)
         for category in self.categories.values():
             render_template(os.path.join(categories_dir, "%s.html" % category.slug), "category.html", songbook=self, category=category)
         for song in self.songs:
             render_template(os.path.join(songs_dir, "%s.html" % song.slug), "song.html", songbook=self, song=song)
         return created_files
 
-    def delete_non_overwritten_files(self, output_dir, created_files):
-        created_files_and_dirs = set(created_files)
-        for path in created_files:
-            relpath = os.path.relpath(path, output_dir)
-            parent, _ = os.path.split(relpath)
-            while parent:
-                created_files_and_dirs.add(os.path.join(output_dir, parent))
-                parent, _ = os.path.split(parent)
-        # TODO: Add config for set of paths to save?
+    def delete_old_files(self, output_dir, kept_files):
+        """Remove contents of output_dir not specified in kept_files.
+
+        output_dir: the directory to clean.
+        kept_files: a list of paths relative to output_dir which shouldn't be deleted.
+
+        Files or directories explicitly specified in kept_files aren't deleted,
+        incl. any contents.  Any directories containing items in kept_files thus
+        aren't deleted, but other items in them may be.
+        """
+        kept_paths = set() # Files created and files/dirs specified w/ --keep; don't delete (incl. all contents).
+        containing_dirs = set() # Dirs containing above; don't delete, but recursively check dir contents.
+        for keep_file in kept_files:
+            fullpath = os.path.join(output_dir, keep_file)
+            if os.path.exists(fullpath):
+                kept_paths.add(fullpath)
+                parent, _ = os.path.split(keep_file)
+                while parent:
+                    containing_dirs.add(os.path.join(output_dir, parent))
+                    parent, _ = os.path.split(parent)
         for dirpath, dirnames, filenames in os.walk(output_dir):
-            used_dirs = []
+            dirs_to_check = []
             for subdirname in dirnames:
                 subdirpath = os.path.join(dirpath, subdirname)
-                if subdirpath in created_files_and_dirs:
-                    used_dirs.append(subdirname)
+                if subdirpath in kept_paths:
+                    pass # A directory explicitly specified (in --keep), keep w/ all contents.
+                elif subdirpath in containing_dirs:
+                    dirs_to_check.append(subdirname)
                 else:
                     shutil.rmtree(subdirpath)
                     logging.debug("Clearing unused dir. from output dir: \"%s\"" % subdirpath)
-            dirnames[:] = used_dirs # Only recurse into the directories we don't delete.
+            dirnames[:] = dirs_to_check # Only recurse into the directories we don't delete or explicitly keep.
             for filename in filenames:
                 filepath = os.path.join(dirpath, filename)
-                if filepath not in created_files_and_dirs:
+                if filepath not in kept_paths:
                     os.remove(filepath)
                     logging.debug("Clearing unused file from output dir: \"%s\"" % filepath)
 
@@ -326,6 +340,8 @@ def main():
     parser.add_argument("-q", "--quiet", help="Quiet mode.  Suppresses non-critical warnings.", action="store_true")
     parser.add_argument("-v", "--verbose", help="Verbose mode. Output debugging messages while running. "
                         "Multiple -v options increase the verbosity, with a maximum of 2.", action="count", default=0)
+    parser.add_argument("--keep", help="Paths (relative to the destination) that shouldn't be cleared even if not overwritten by %(prog)s",
+                        action="append", default=[])
     
     args = parser.parse_args()
     if not args.destination:
@@ -341,7 +357,7 @@ def main():
     try:
         songbook = SongBook(args.source)
         created_files = songbook.render_templates(args.destination)
-        songbook.delete_non_overwritten_files(args.destination, created_files)
+        songbook.delete_old_files(args.destination, created_files.union(args.keep))
     except SystemExit:
         pass # We're intentionally exiting, no logging required.
     except KeyboardInterrupt:
