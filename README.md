@@ -88,6 +88,14 @@ The required templates are:
 
 Other templates in the directory will not be used directly, but can be used with the processed templates through [template inheritance](http://jinja.pocoo.org/docs/dev/templates/#template-inheritance) for content common to multiple templates. (E.g. the `common.html` template in the Example Songbook directory that other templates inherit from.)
 
+#### static
+
+The `static` directory contains non-generated files to be used in the final website, such as css, images, etc.
+
+All files in the `static` directory will be copied into the destination directory.  Any non-empty directories in `static` will be created in the destination directory as well, to preserve the directory structure of the copied files.
+
+In the event of a conflict between a file copied from `static` and a file generated from the templates, the generated file will overwrite the copied file (and will produce a warning).
+
 
 ### Running SongBook
 

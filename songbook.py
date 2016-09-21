@@ -272,6 +272,35 @@ class SongBook:
             render_template(os.path.join(songs_dir, "%s.html" % song.slug), "song.html", songbook=self, song=song)
         return created_files
 
+    def copy_static(self, static_dir, output_dir):
+        """Copy files and their directory structure from static_dir to output_dir.
+
+        Files are copied, as are any directories containing them, but empty directories are excluded, as they would be
+        removed by delete_old_files later in the website generation process.
+        """
+        copied_files = set()
+        if not os.path.isdir(static_dir):
+            logging.info("No static dir found at \"%s\"." % static_dir)
+            return copied_files
+        for dirpath, dirnames, filenames in os.walk(static_dir):
+            rel_dir = os.path.relpath(dirpath, static_dir)
+            if rel_dir == ".":
+                rel_dir = ""
+            out_dir = os.path.join(output_dir, rel_dir)
+            if not os.path.isdir(out_dir) and filenames:
+                if os.path.exists(out_dir):
+                    os.remove(out_dir)
+                os.mkdir(out_dir)
+            for filename in filenames:
+                src_path = os.path.join(dirpath, filename) 
+                out_path = os.path.join(out_dir, filename)
+                rel_path = os.path.join(rel_dir, filename)
+                if os.path.isdir(out_path):
+                    shutils.rmtree(out_path)
+                shutil.copy2(src_path, out_path)
+                copied_files.add(rel_path)
+        return copied_files
+
     def delete_old_files(self, output_dir, kept_files):
         """Remove contents of output_dir not specified in kept_files.
 
@@ -355,8 +384,11 @@ def main():
 
     try:
         songbook = SongBook(args.source)
+        copied_files = songbook.copy_static(os.path.join(args.source, "static"), args.destination)
         created_files = songbook.render_templates(args.destination)
-        songbook.delete_old_files(args.destination, created_files.union(args.keep))
+        for path in copied_files.intersection(created_files):
+            logging.warning("File \"%s\" from static was overwritten by a generated file.")
+        songbook.delete_old_files(args.destination, set.union(copied_files, created_files, args.keep))
     except SystemExit:
         pass # We're intentionally exiting, no logging required.
     except KeyboardInterrupt:
