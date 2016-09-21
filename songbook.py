@@ -350,9 +350,9 @@ def truncate(string, max_length, suffix='…'):
     return string[:max_length - len(suffix)] + suffix
 
 def slugify(string):
-    special_translation = string.lower().translate({'ø':'o', 'ß':'ss', 'œ':'ae',
+    special_translation = string.lower().translate(str.maketrans({'ø':'o', 'ß':'ss', 'œ':'ae',
                                                     '–':'-','—':'-',
-                                                    '”':'"','“':'"','’':"'",'‘':"'"})
+                                                    '”':'"','“':'"','’':"'",'‘':"'"}))
     decomposed = unicodedata.normalize('NFKD', special_translation)
     ascii_only = decomposed.encode('ascii', 'ignore').decode('ascii')
     alphanum = re.sub(r"\W+", "-", ascii_only).strip('-')
