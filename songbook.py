@@ -127,7 +127,12 @@ class Category:
 
 
 class SongBook:
+    """A collection of songs, linked by their associated categories and cross references."""
     def __init__(self, source_path):
+        """Load all song files and templates from source_path.
+        
+        Song objects are created for all loaded songs, as well as Category objects for any tags they specify.
+        The resulting Song and Category objects will then reference each other as appropriate."""
         self.source_path = source_path
         songs_path = os.path.join(source_path, "songs")
         template_path = os.path.join(source_path, "templates")
@@ -161,6 +166,7 @@ class SongBook:
         return songs
 
     def link_songs_and_categories(self):
+        """Create categories and make song and category objects refer to each other when referenced by name in tags."""
         songs_by_slug = {}
         # Add all songs by their default title.
         for song in self.songs:
@@ -203,6 +209,11 @@ class SongBook:
 
         # Helper functions for looking up songs/categories.
         def song_for_title(title):
+            """Helper to find the matching Song object given a song title.
+            
+            Song titles may differ slightly (e.g. capitalization, punctuation), as long as they
+            have the same slug. If multiple songs have the same slug, go for an exact title match.
+            """
             slug = slugify(title)
             if slug not in songs_by_slug:
                 return None
@@ -227,6 +238,10 @@ class SongBook:
                 return songs[0]
 
         def category_for_tag(name):
+            """Helper to find the matching category given a category name.
+            
+            Category names can differ slightly (capitalization, punctuation) as long as they have the same slug.
+            """
             return self.categories.get(slugify(name), None)
 
         # Set song.see and song.categories w/ correct referenced objects
@@ -250,6 +265,7 @@ class SongBook:
             logging.info("%d songs have no categories: %s" % (len(uncategorized), uncategorized))
 
     def render_templates(self, output_dir):
+        """Renders all the templates into output_dir based on our Songs and Categories."""
         created_files = set()
         def render_template(output_path, template_name, **context):
             template = self.templates.get_template(template_name)
@@ -350,6 +366,13 @@ def truncate(string, max_length, suffix='…'):
     return string[:max_length - len(suffix)] + suffix
 
 def slugify(string):
+    """Turns a string into a sluggified version safe for use in URLs.
+    
+    The resulting slug will only contain lowercase alphanumerics, '_', and '-'.  Strings of other characters
+    are converted into a single '-', multiple '-'s will be coalesced, and leading/trailing '-'s are stripped.
+    An attempt is made to convert non-ascii characters (e.g. accented letters) to similar ascii characters to
+    maintain readability (e.g. "Größe" -> "grosse").
+    """
     special_translation = string.lower().translate(str.maketrans({'ø':'o', 'ß':'ss', 'œ':'ae',
                                                     '–':'-','—':'-',
                                                     '”':'"','“':'"','’':"'",'‘':"'"}))
