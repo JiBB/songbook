@@ -12,6 +12,10 @@ import argparse
 import re
 import unicodedata
 import collections
+import http.server
+import posixpath
+import urllib
+import time
 
 try:
     import markdown
@@ -381,7 +385,45 @@ def slugify(string):
     alphanum = re.sub(r"\W+", "-", ascii_only).strip('-')
     return alphanum
 
-        
+
+class Server:
+    """"""
+    def __init__(self, document_root, port=8000):
+        class RootedHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+            def translate_path(self, path):
+                """Translates a URL path to be a local filesystem path rooted at self.root_directory.
+
+                Based on the SimpleHTTPRequestHandler implementation, but modified for a different root.
+                """
+                path = posixpath.normpath(urllib.parse.unquote(path))
+                words = path.split('/')
+                words = filter(None, words)
+                path = document_root
+                for word in words:
+                    drive, word = os.path.splitdrive(word)
+                    head, word = os.path.split(word)
+                    if word in (os.curdir, os.pardir):
+                        continue
+                    path = os.path.join(path, word)
+                return path
+
+            def log_message(self, format, *args):
+                """Log an arbitrary message, modified to use our logging levels and a more compact format."""
+                logging.info("- [%s] %s" % (self.log_date_time_string(), format%args))
+
+            def log_date_time_string(self):
+                """Return the current time formatted for logging.  Modified to be more compact."""
+                now = time.time()
+                year, month, day, hh, mm, ss, x, y, z = time.localtime(now)
+                return "%02d:%02d:%02d" % (hh, mm, ss)
+
+        self.httpd = http.server.HTTPServer(("", port), RootedHTTPRequestHandler)
+        self.port = self.httpd.socket.getsockname()[1]
+    
+    def serve(self):
+        self.httpd.serve_forever()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", help="The directory containing songs, templates, etc. (Default: current directory).", default=".")
@@ -393,6 +435,9 @@ def main():
                         "Multiple -v options increase the verbosity, with a maximum of 2.", action="count", default=0)
     parser.add_argument("--keep", help="Paths (relative to the destination) that shouldn't be cleared even if not overwritten by %(prog)s",
                         action="append", default=[])
+
+    parser.add_argument("--serve", help="start a basic webserver for testing after building, default port is %(const)d",
+                        dest="port", type=int, const=8000, nargs="?", default=None)
     
     args = parser.parse_args()
     if not args.destination:
@@ -412,6 +457,10 @@ def main():
         for path in copied_files.intersection(created_files):
             logging.warning("File \"%s\" from static was overwritten by a generated file.")
         songbook.delete_old_files(args.destination, set.union(copied_files, created_files, args.keep))
+        if args.port != None:
+            server = Server(args.destination, args.port)
+            logging.warning("Starting webserver on port %d.  ^C to kill..." % server.port)
+            server.serve()
     except SystemExit:
         pass # We're intentionally exiting, no logging required.
     except KeyboardInterrupt:

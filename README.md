@@ -123,6 +123,12 @@ By default, all contents of the output directory not handled by SongBook will be
 songbook --keep .git
 ```
 
+The app can also start a basic webserver after generating the site, serving the contents of the destination folder.  If no port is specified, the app will use a default of 8000.  If 0 is specified, the app will pick an arbitrary port to use.  The server will continue running and responding to http requests until the app is killed (by typing ^C).
+
+```
+songbook --serve [PORT]
+```
+
 
 ## Authors
 
