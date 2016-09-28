@@ -430,8 +430,9 @@ def main():
     parser.add_argument("--destination", help="The directory in which to generate the songbook website (replacing any existing files). "
                         "(Default: a 'site/' directory within the source directory.).")
     parser.add_argument("--version", action="version", version="%%(prog)s %s" % __version__)
-    parser.add_argument("-q", "--quiet", help="Quiet mode.  Suppresses non-critical warnings.", action="store_true")
-    parser.add_argument("-v", "--verbose", help="Verbose mode. Output debugging messages while running. "
+    log_args = parser.add_mutually_exclusive_group()
+    log_args.add_argument("-q", "--quiet", help="Quiet mode.  Suppresses non-critical warnings.", action="store_true")
+    log_args.add_argument("-v", "--verbose", help="Verbose mode. Output debugging messages while running. "
                         "Multiple -v options increase the verbosity, with a maximum of 2.", action="count", default=0)
     parser.add_argument("--keep", help="Paths (relative to the destination) that shouldn't be cleared even if not overwritten by %(prog)s",
                         action="append", default=[])
