@@ -272,8 +272,21 @@ class SongBook:
         """Renders all the templates into output_dir based on our Songs and Categories."""
         created_files = set()
         def render_template(output_path, template_name, **context):
-            template = self.templates.get_template(template_name)
-            html = template.render(**context)
+            try:
+                try:
+                    template = self.templates.get_template(template_name)
+                except jinja2.exceptions.TemplateNotFound as exception:
+                    logging.error("Required template not found: {0.message}".format(exception))
+                    sys.exit(os.EX_NOINPUT)
+                try:
+                    html = template.render(**context)
+                except jinja2.exceptions.TemplateNotFound as exception:
+                    logging.error("Referenced template not found: {0.message}".format(exception))
+                    sys.exit(os.EX_DATAERR)
+            except jinja2.exceptions.TemplateSyntaxError as exception:
+                exception.translated = False # Since we're skipping the information translated into the traceback...
+                logging.error("Error rendering template '{0}':\n  {1}".format(template_name, exception))
+                sys.exit(os.EX_DATAERR)
             with open(os.path.join(output_dir, output_path), 'w') as output_file:
                 output_file.write(html)
             created_files.add(output_path)
@@ -437,7 +450,7 @@ def main():
     parser.add_argument("--keep", help="Paths (relative to the destination) that shouldn't be cleared even if not overwritten by %(prog)s",
                         action="append", default=[])
 
-    parser.add_argument("--serve", help="start a basic webserver for testing after building, default port is %(const)d",
+    parser.add_argument("--serve", help="Start a basic webserver for testing after building, default port is %(const)d.  Implies --watch.",
                         dest="port", type=int, const=8000, nargs="?", default=None)
     
     args = parser.parse_args()
@@ -450,6 +463,7 @@ def main():
     elif args.verbose >= 2:
         log_level = logging.DEBUG
     logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
+    logging.getLogger('MARKDOWN').setLevel(logging.WARNING)
 
     try:
         songbook = SongBook(args.source)
