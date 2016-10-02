@@ -400,7 +400,7 @@ def slugify(string):
 
 
 class Server:
-    """"""
+    """A basic HTTP server that serves documents from a specific document root, not just the current directory."""
     def __init__(self, document_root, port=8000):
         class RootedHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             def translate_path(self, path):
