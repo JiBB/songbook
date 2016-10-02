@@ -26,6 +26,33 @@ except ImportError as error:
 
 SONG_EXTENSION = ".txt"
 
+
+def truncate(string, max_length, suffix='…'):
+    """Return a string of at most max_length characters, ending with a particular suffix if truncated."""
+    assert max_length > 0, "max_length is not positive: %r" % max_length
+    if len(string) <= max_length:
+        return string
+    if len(suffix) >= max_length:
+        return string[:max_length]
+    return string[:max_length - len(suffix)] + suffix
+
+def slugify(string):
+    """Turns a string into a sluggified version safe for use in URLs.
+
+    The resulting slug will only contain lowercase alphanumerics, '_', and '-'.  Strings of other characters
+    are converted into a single '-', multiple '-'s will be coalesced, and leading/trailing '-'s are stripped.
+    An attempt is made to convert non-ascii characters (e.g. accented letters) to similar ascii characters to
+    maintain readability (e.g. "Größe" -> "grosse").
+    """
+    special_translation = string.lower().translate(str.maketrans({'ø':'o', 'ß':'ss', 'œ':'ae',
+                                                    '–':'-','—':'-',
+                                                    '”':'"','“':'"','’':"'",'‘':"'"}))
+    decomposed = unicodedata.normalize('NFKD', special_translation)
+    ascii_only = decomposed.encode('ascii', 'ignore').decode('ascii')
+    alphanum = re.sub(r"\W+", "-", ascii_only).strip('-')
+    return alphanum
+
+
 class Song:
     """A song with associated metadata."""
 
@@ -132,28 +159,14 @@ class Category:
 
 class SongBook:
     """A collection of songs, linked by their associated categories and cross references."""
-    def __init__(self, source_path):
+    def __init__(self, songs_path):
         """Load all song files and templates from source_path.
         
         Song objects are created for all loaded songs, as well as Category objects for any tags they specify.
         The resulting Song and Category objects will then reference each other as appropriate."""
-        self.source_path = source_path
-        songs_path = os.path.join(source_path, "songs")
-        template_path = os.path.join(source_path, "templates")
-        if not os.path.exists(source_path):
-            logging.error("Could not find source directory '%s'" % source_path)
-            sys.exit(os.EX_NOINPUT)
-        if not os.path.isdir(source_path):
-            logging.error("Source '%s' is not a directory" % source_path)
-            sys.exit(os.EX_NOINPUT)
-        for required_path in (songs_path, template_path):
-            if not os.path.isdir(required_path):
-                logging.error("Source directory does not contain a %s subdirectory", os.path.split(required_path)[-1])
-                sys.exit(os.EX_NOINPUT)
         self.songs = self.songs_from_directory(songs_path)
         logging.info("Parsed %d songs", len(self.songs))
         self.link_songs_and_categories()
-        self.templates = jinja2.Environment(loader=jinja2.FileSystemLoader(template_path))
 
     def songs_from_directory(self, path):
         """Return an array of Song objects for all song files in a given directory."""
@@ -268,9 +281,40 @@ class SongBook:
         if uncategorized:
             logging.info("%d songs have no categories: %s" % (len(uncategorized), uncategorized))
 
-    def render_templates(self, output_dir):
-        """Renders all the templates into output_dir based on our Songs and Categories."""
-        created_files = set()
+
+class SiteBuilder:
+    """Create a static website based on song files and templates read in."""
+    def __init__(self, source, destination, keep):
+        self.source = source
+        self.destination = destination
+        self.keep = keep
+
+        self.songs_path = os.path.join(self.source, "songs")
+        self.template_path = os.path.join(self.source, "templates")
+        self.static_path = os.path.join(self.source, "static")
+        if not os.path.exists(self.source):
+            logging.error("Could not find source directory '%s'" % source_path)
+            sys.exit(os.EX_NOINPUT)
+        if not os.path.isdir(self.source):
+            logging.error("Source '%s' is not a directory" % source_path)
+            sys.exit(os.EX_NOINPUT)
+        for required_path in (self.songs_path, self.template_path):
+            if not os.path.isdir(required_path):
+                logging.error("Source directory does not contain a %s subdirectory", os.path.split(required_path)[-1])
+                sys.exit(os.EX_NOINPUT)
+        self.templates = jinja2.Environment(loader=jinja2.FileSystemLoader(self.template_path))
+
+    def build_site(self):
+        self.songbook = SongBook(self.songs_path)
+        self.copy_static()
+        self.render_templates()
+        for path in set.intersection(self.copied_files, self.created_files):
+            logging.warning("File \"%s\" from static was overwritten by a generated file.")
+        self.delete_old_files(set.union(self.copied_files, self.created_files, self.keep))
+
+    def render_templates(self):
+        """Renders all the templates into destination directory based on our Songs and Categories."""
+        self.created_files = set()
         def render_template(output_path, template_name, **context):
             try:
                 try:
@@ -287,39 +331,38 @@ class SongBook:
                 exception.translated = False # Since we're skipping the information translated into the traceback...
                 logging.error("Error rendering template '{0}':\n  {1}".format(template_name, exception))
                 sys.exit(os.EX_DATAERR)
-            with open(os.path.join(output_dir, output_path), 'w') as output_file:
+            with open(os.path.join(self.destination, output_path), 'w') as output_file:
                 output_file.write(html)
-            created_files.add(output_path)
+            self.created_files.add(output_path)
 
         songs_dir = "songs"
         categories_dir = "categories"
         for path in ("", songs_dir, categories_dir):
-            dir_path = os.path.join(output_dir, path)
+            dir_path = os.path.join(self.destination, path)
             if not os.path.isdir(dir_path):
                 os.mkdir(dir_path)
-        render_template("songs.html", "songs.html", songbook=self)
-        render_template("categories.html", "categories.html", songbook=self)
-        for category in self.categories.values():
-            render_template(os.path.join(categories_dir, "%s.html" % category.slug), "category.html", songbook=self, category=category)
-        for song in self.songs:
-            render_template(os.path.join(songs_dir, "%s.html" % song.slug), "song.html", songbook=self, song=song)
-        return created_files
+        render_template("songs.html", "songs.html", songbook=self.songbook)
+        render_template("categories.html", "categories.html", songbook=self.songbook)
+        for category in self.songbook.categories.values():
+            render_template(os.path.join(categories_dir, "%s.html" % category.slug), "category.html", songbook=self.songbook, category=category)
+        for song in self.songbook.songs:
+            render_template(os.path.join(songs_dir, "%s.html" % song.slug), "song.html", songbook=self.songbook, song=song)
 
-    def copy_static(self, static_dir, output_dir):
-        """Copy files and their directory structure from static_dir to output_dir.
+    def copy_static(self):
+        """Copy files and their directory structure from static directory to the output directory.
 
         Files are copied, as are any directories containing them, but empty directories are excluded, as they would be
         removed by delete_old_files later in the website generation process.
         """
-        copied_files = set()
-        if not os.path.isdir(static_dir):
-            logging.info("No static dir found at \"%s\"." % static_dir)
-            return copied_files
-        for dirpath, dirnames, filenames in os.walk(static_dir):
-            rel_dir = os.path.relpath(dirpath, static_dir)
+        self.copied_files = set()
+        if not os.path.isdir(self.static_path):
+            logging.info("No static dir found at \"%s\"." % self.static_path)
+            return
+        for dirpath, dirnames, filenames in os.walk(self.static_path):
+            rel_dir = os.path.relpath(dirpath, self.static_path)
             if rel_dir == ".":
                 rel_dir = ""
-            out_dir = os.path.join(output_dir, rel_dir)
+            out_dir = os.path.join(self.destination, rel_dir)
             if not os.path.isdir(out_dir) and filenames:
                 if os.path.exists(out_dir):
                     os.remove(out_dir)
@@ -331,14 +374,12 @@ class SongBook:
                 if os.path.isdir(out_path):
                     shutils.rmtree(out_path)
                 shutil.copy2(src_path, out_path)
-                copied_files.add(rel_path)
-        return copied_files
+                self.copied_files.add(rel_path)
 
-    def delete_old_files(self, output_dir, kept_files):
-        """Remove contents of output_dir not specified in kept_files.
+    def delete_old_files(self, kept_files):
+        """Remove contents of self.destination not specified in kept_files.
 
-        output_dir: the directory to clean.
-        kept_files: a list of paths relative to output_dir which shouldn't be deleted.
+        kept_files: a list of paths relative to self.destination which shouldn't be deleted.
 
         Files or directories explicitly specified in kept_files aren't deleted,
         incl. any contents.  Any directories containing items in kept_files thus
@@ -347,14 +388,14 @@ class SongBook:
         kept_paths = set() # Files created and files/dirs specified w/ --keep; don't delete (incl. all contents).
         containing_dirs = set() # Dirs containing above; don't delete, but recursively check dir contents.
         for keep_file in kept_files:
-            fullpath = os.path.join(output_dir, keep_file)
+            fullpath = os.path.join(self.destination, keep_file)
             if os.path.exists(fullpath):
                 kept_paths.add(fullpath)
                 parent, _ = os.path.split(keep_file)
                 while parent:
-                    containing_dirs.add(os.path.join(output_dir, parent))
+                    containing_dirs.add(os.path.join(self.destination, parent))
                     parent, _ = os.path.split(parent)
-        for dirpath, dirnames, filenames in os.walk(output_dir):
+        for dirpath, dirnames, filenames in os.walk(self.destination):
             dirs_to_check = []
             for subdirname in dirnames:
                 subdirpath = os.path.join(dirpath, subdirname)
@@ -371,32 +412,6 @@ class SongBook:
                 if filepath not in kept_paths:
                     os.remove(filepath)
                     logging.debug("Clearing unused file from output dir: \"%s\"" % filepath)
-
-
-def truncate(string, max_length, suffix='…'):
-    """Return a string of at most max_length characters, ending with a particular suffix if truncated."""
-    assert max_length > 0, "max_length is not positive: %r" % max_length
-    if len(string) <= max_length:
-        return string
-    if len(suffix) >= max_length:
-        return string[:max_length]
-    return string[:max_length - len(suffix)] + suffix
-
-def slugify(string):
-    """Turns a string into a sluggified version safe for use in URLs.
-    
-    The resulting slug will only contain lowercase alphanumerics, '_', and '-'.  Strings of other characters
-    are converted into a single '-', multiple '-'s will be coalesced, and leading/trailing '-'s are stripped.
-    An attempt is made to convert non-ascii characters (e.g. accented letters) to similar ascii characters to
-    maintain readability (e.g. "Größe" -> "grosse").
-    """
-    special_translation = string.lower().translate(str.maketrans({'ø':'o', 'ß':'ss', 'œ':'ae',
-                                                    '–':'-','—':'-',
-                                                    '”':'"','“':'"','’':"'",'‘':"'"}))
-    decomposed = unicodedata.normalize('NFKD', special_translation)
-    ascii_only = decomposed.encode('ascii', 'ignore').decode('ascii')
-    alphanum = re.sub(r"\W+", "-", ascii_only).strip('-')
-    return alphanum
 
 
 class Server:
@@ -466,12 +481,9 @@ def main():
     logging.getLogger('MARKDOWN').setLevel(logging.WARNING)
 
     try:
-        songbook = SongBook(args.source)
-        copied_files = songbook.copy_static(os.path.join(args.source, "static"), args.destination)
-        created_files = songbook.render_templates(args.destination)
-        for path in copied_files.intersection(created_files):
-            logging.warning("File \"%s\" from static was overwritten by a generated file.")
-        songbook.delete_old_files(args.destination, set.union(copied_files, created_files, args.keep))
+        site_builder = SiteBuilder(args.source, args.destination, args.keep)
+        site_builder.build_site()
+
         if args.port != None:
             server = Server(args.destination, args.port)
             logging.warning("Starting webserver on port %d.  ^C to kill..." % server.port)
