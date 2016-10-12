@@ -300,9 +300,11 @@ class SiteBuilder:
             sys.exit(os.EX_NOINPUT)
         for required_path in (self.songs_path, self.templates_path):
             if not os.path.isdir(required_path):
-                logging.error("Source directory does not contain a %s subdirectory" % os.path.split(required_path)[-1])
+                logging.error("Source directory does not contain a %s subdirectory" % os.path.basename(required_path))
                 sys.exit(os.EX_NOINPUT)
         self.templates = jinja2.Environment(loader=jinja2.FileSystemLoader(self.templates_path))
+        self.copied_files = set()
+        self.generated_files = set()
 
     def build_site(self):
         self.songbook = SongBook(self.songs_path)
@@ -315,6 +317,25 @@ class SiteBuilder:
     def render_templates(self):
         """Renders all the templates into destination directory based on our Songs and Categories."""
         self.created_files = set()
+        def mkdir_f(dir_path):
+            """Forcibly create a directory at dir_path, removing any file there, and with no error for existing directories."""
+            if not os.path.isdir(dir_path):
+                if os.path.exists(dir_path):
+                    os.remove(dir_path)
+                os.mkdir(dir_path)
+        def mkdir_f_p(dir_path):
+            """Forcibly create a directory at dir_path, (and all parent directories that don't exist, up to self.destination)."""
+            if dir_path == "":
+                dir_path = os.path.curdir
+            rel_path = os.path.relpath(dir_path, self.destination)
+            if rel_path.startswith(os.path.pardir+os.path.sep):
+                return
+            head, tail = os.path.split(rel_path)
+            if head:
+               mkdir_f_p(os.path.join(self.destination, head))
+            else:
+                mkdir_f(self.destination)
+            mkdir_f(dir_path)
         def render_template(output_path, template_name, **context):
             try:
                 try:
@@ -331,16 +352,16 @@ class SiteBuilder:
                 exception.translated = False # Since we're skipping the information translated into the traceback...
                 logging.error("Error rendering template '{0}':\n  {1}".format(template_name, exception))
                 sys.exit(os.EX_DATAERR)
-            with open(os.path.join(self.destination, output_path), 'w') as output_file:
+            full_output_path = os.path.join(self.destination, output_path)
+            mkdir_f_p(os.path.dirname(full_output_path))
+            if os.path.isdir(full_output_path):
+                shutils.rmtree(full_output_path)
+            with open(full_output_path, 'w') as output_file:
                 output_file.write(html)
             self.created_files.add(output_path)
 
         songs_dir = "songs"
         categories_dir = "categories"
-        for path in ("", songs_dir, categories_dir):
-            dir_path = os.path.join(self.destination, path)
-            if not os.path.isdir(dir_path):
-                os.mkdir(dir_path)
         render_template("songs.html", "songs.html", songbook=self.songbook)
         render_template("categories.html", "categories.html", songbook=self.songbook)
         for category in self.songbook.categories.values():
@@ -360,7 +381,7 @@ class SiteBuilder:
             return
         for dirpath, dirnames, filenames in os.walk(self.static_path):
             rel_dir = os.path.relpath(dirpath, self.static_path)
-            if rel_dir == ".":
+            if rel_dir == os.path.curdir:
                 rel_dir = ""
             out_dir = os.path.join(self.destination, rel_dir)
             if not os.path.isdir(out_dir) and filenames:
@@ -393,10 +414,10 @@ class SiteBuilder:
             fullpath = os.path.join(self.destination, keep_file)
             if os.path.exists(fullpath):
                 kept_paths.add(fullpath)
-                parent, _ = os.path.split(keep_file)
+                parent = os.path.dirname(keep_file)
                 while parent:
                     containing_dirs.add(os.path.join(self.destination, parent))
-                    parent, _ = os.path.split(parent)
+                    parent = os.path.dirname(parent)
         for dirpath, dirnames, filenames in os.walk(self.destination):
             dirs_to_check = []
             for subdirname in dirnames:
@@ -447,7 +468,7 @@ class SiteBuilder:
                     logging.warning("File \"%s\" from static is shaddowed by a generated file." % rel_path)
                 elif event.event_type in ("created", "modified"):
                     logging.info("Static file %s, copying '%s'" % (event.event_type, rel_path))
-                    os.makedirs(os.path.split(out_path)[0], exist_ok=True)
+                    os.makedirs(os.path.dirname(out_path), exist_ok=True)
                     if os.path.isdir(out_path):
                         shutils.rmtree(out_path)
                     shutil.copy2(event.src_path, out_path)
@@ -502,7 +523,7 @@ class Server:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", help="The directory containing songs, templates, etc. (Default: current directory).", default=".")
+    parser.add_argument("--source", help="The directory containing songs, templates, etc. (Default: current directory).", default=os.path.curdir)
     parser.add_argument("--destination", help="The directory in which to generate the songbook website (replacing any existing files). "
                         "(Default: a 'site/' directory within the source directory.).")
     parser.add_argument("--version", action="version", version="%%(prog)s %s" % __version__)
