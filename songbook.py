@@ -290,7 +290,7 @@ class SiteBuilder:
         self.keep = keep
 
         self.songs_path = os.path.join(self.source, "songs")
-        self.template_path = os.path.join(self.source, "templates")
+        self.templates_path = os.path.join(self.source, "templates")
         self.static_path = os.path.join(self.source, "static")
         if not os.path.exists(self.source):
             logging.error("Could not find source directory '%s'" % source_path)
@@ -298,19 +298,19 @@ class SiteBuilder:
         if not os.path.isdir(self.source):
             logging.error("Source '%s' is not a directory" % source_path)
             sys.exit(os.EX_NOINPUT)
-        for required_path in (self.songs_path, self.template_path):
+        for required_path in (self.songs_path, self.templates_path):
             if not os.path.isdir(required_path):
-                logging.error("Source directory does not contain a %s subdirectory", os.path.split(required_path)[-1])
+                logging.error("Source directory does not contain a %s subdirectory" % os.path.split(required_path)[-1])
                 sys.exit(os.EX_NOINPUT)
-        self.templates = jinja2.Environment(loader=jinja2.FileSystemLoader(self.template_path))
+        self.templates = jinja2.Environment(loader=jinja2.FileSystemLoader(self.templates_path))
 
     def build_site(self):
         self.songbook = SongBook(self.songs_path)
         self.copy_static()
         self.render_templates()
         for path in set.intersection(self.copied_files, self.created_files):
-            logging.warning("File \"%s\" from static was overwritten by a generated file.")
-        self.delete_old_files(set.union(self.copied_files, self.created_files, self.keep))
+            logging.warning("File \"%s\" from static was overwritten by a generated file." % path)
+        self.delete_old_files()
 
     def render_templates(self):
         """Renders all the templates into destination directory based on our Songs and Categories."""
@@ -376,15 +376,17 @@ class SiteBuilder:
                 shutil.copy2(src_path, out_path)
                 self.copied_files.add(rel_path)
 
-    def delete_old_files(self, kept_files):
-        """Remove contents of self.destination not specified in kept_files.
+    def delete_old_files(self):
+        """Remove contents of self.destination not created, copied in, or specified in self.keep.
 
-        kept_files: a list of paths relative to self.destination which shouldn't be deleted.
+        kept_files is the union of self.copied_files, self.created_files, and self.keep.
+        Each of these should be a list of paths relative to self.destination which shouldn't be deleted.
 
         Files or directories explicitly specified in kept_files aren't deleted,
         incl. any contents.  Any directories containing items in kept_files thus
         aren't deleted, but other items in them may be.
         """
+        kept_files = set.union(self.copied_files, self.created_files, self.keep)
         kept_paths = set() # Files created and files/dirs specified w/ --keep; don't delete (incl. all contents).
         containing_dirs = set() # Dirs containing above; don't delete, but recursively check dir contents.
         for keep_file in kept_files:
