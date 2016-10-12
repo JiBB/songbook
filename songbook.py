@@ -415,6 +415,52 @@ class SiteBuilder:
                     os.remove(filepath)
                     logging.debug("Clearing unused file from output dir: \"%s\"" % filepath)
 
+    def observed_event(self, event):
+        assert(not event.is_directory)
+        # Handle moved files/dirs as a pair of creation/deletion.
+        # This lets us deal with files moved from one special dir to another w/o complication
+        if event.event_type == "moved" and not event.is_directory:
+            logging.debug(event)
+            self.observed_event(watchdog.events.FileDeletedEvent(event.src_path))
+            self.observed_event(watchdog.events.FileCreatedEvent(event.dest_path))
+            return
+
+        def in_path(event, path):
+            return not os.path.relpath(event.src_path, path).startswith(os.path.pardir+os.path.sep)
+        if in_path(event, self.songs_path):
+            logging.debug(event)
+            logging.info("Songs changed, re-loading and re-rendering.")
+            self.songbook = SongBook(self.songs_path)
+            self.render_templates()
+            self.delete_old_files()
+        elif in_path(event, self.templates_path):
+            logging.debug(event)
+            logging.info("Templates changed, re-rendering.")
+            self.render_templates()
+            self.delete_old_files()
+        elif in_path(event, self.static_path):
+            logging.debug(event)
+            rel_path = os.path.relpath(event.src_path, self.static_path)
+            out_path = os.path.join(self.destination, rel_path)
+            try:
+                if event.event_type == "created" and rel_path in self.created_files:
+                    logging.warning("File \"%s\" from static is shaddowed by a generated file." % rel_path)
+                elif event.event_type in ("created", "modified"):
+                    logging.info("Static file %s, copying '%s'" % (event.event_type, rel_path))
+                    os.makedirs(os.path.split(out_path)[0], exist_ok=True)
+                    if os.path.isdir(out_path):
+                        shutils.rmtree(out_path)
+                    shutil.copy2(event.src_path, out_path)
+                    self.copied_files.add(rel_path)
+                elif event.event_type in ("deleted",):
+                    logging.info("Static file deleted, removing '%s'" % rel_path)
+                    os.remove(out_path)
+                    self.copied_files.remove(rel_path)
+                else:
+                    logging.error("Unknown event type: '%s'" % event.event_type)
+            except FileNotFoundError as error:
+                logging.debug("File '%s' removed before processing" % error.filename)
+
 
 class Server:
     """A basic HTTP server that serves documents from a specific document root, not just the current directory."""
@@ -469,10 +515,17 @@ def main():
 
     parser.add_argument("--serve", help="Start a basic webserver for testing after building, default port is %(const)d.  Implies --watch.",
                         dest="port", type=int, const=8000, nargs="?", default=None)
-    
+    watch_args = parser.add_mutually_exclusive_group()
+    watch_args.add_argument("-w", "--watch", help="Watch the source directory for changes, rebuilding the site when they occur.",
+                            action="store_true", default=None)
+    watch_args.add_argument("--no-watch", help="Disable the watching implied by --serve", dest="watch", action="store_false", default=None)
+
     args = parser.parse_args()
     if not args.destination:
         args.destination = os.path.join(args.source, "site")
+    # If serving the created site, turn on watching unless explicitly disabled.
+    if args.port != None and args.watch != False:
+        args.watch = True
 
     log_level = logging.ERROR if args.quiet else logging.WARNING
     if args.verbose == 1:
@@ -482,14 +535,38 @@ def main():
     logging.basicConfig(level=log_level, format="%(levelname)s: %(message)s")
     logging.getLogger('MARKDOWN').setLevel(logging.WARNING)
 
+    if args.watch:
+        try:
+            global watchdog
+            import watchdog
+            import watchdog.observers
+            import watchdog.events
+        except ImportError as error:
+            logging.warning("Watching for changes requires the 'watchdog' module; lease check the installation instructions. "\
+                            "Disabling watching until module is installed (or use --nowatch to avoid this warning)")
+            args.watch = False
+
+    observer = None
     try:
         site_builder = SiteBuilder(args.source, args.destination, args.keep)
         site_builder.build_site()
+
+        if args.watch:
+            logging.warning("Watching for changes and regenerating site.%s" % ("  ^C to kill..." if args.port == None else ""))
+            event_handler = watchdog.events.PatternMatchingEventHandler(ignore_patterns=["*/.DS_Store", "*/Thumbs.db", "*.swp", "*.swo", "*~"], ignore_directories=True)
+            event_handler.on_any_event = site_builder.observed_event
+            observer = watchdog.observers.Observer()
+            observer.schedule(event_handler, args.source, recursive=True)
+            observer.start()
 
         if args.port != None:
             server = Server(args.destination, args.port)
             logging.warning("Starting webserver on port %d.  ^C to kill..." % server.port)
             server.serve()
+        elif args.watch:
+            # If we're watching for changes, but not serving, keep main thread busy with something.
+            while True:
+                time.sleep(1)
     except SystemExit:
         pass # We're intentionally exiting, no logging required.
     except KeyboardInterrupt:
@@ -498,6 +575,9 @@ def main():
         logging.exception("Failed with unhandled exception:")
         raise
     finally:
+        if observer:
+            observer.stop()
+            observer.join()
         logging.shutdown()
 
 if __name__ == "__main__":
