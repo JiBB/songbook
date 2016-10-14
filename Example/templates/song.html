@@ -11,7 +11,7 @@
             {%- for title, see_song in song.see -%}
               {{ comma() }}
               {%- if see_song -%}
-                <a href="../songs/{{see_song.slug}}.html">{{title}}</a>
+                <a href="../{{see_song.slug}}/">{{title}}</a>
               {%- else -%}
                 {{title}}
               {%- endif %}
@@ -25,7 +25,7 @@
             {%- for name, song_category in song.categories -%}
               {{ comma() }}
               {%- if song_category -%}
-                <a href="../categories/{{song_category.slug}}.html">{{name}}</a>
+                <a href="../../categories/{{song_category.slug}}/">{{name}}</a>
               {%- else -%}
                 {{name}}
               {%- endif %}

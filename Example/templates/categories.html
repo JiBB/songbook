@@ -6,13 +6,13 @@
   </header>
   {% for category in songbook.categories.values() %}
     <section>
-    <h1><a name="{{category.slug}}" href="categories/{{category.slug}}.html">{{ category.name | title }}</a></h1>
+    <h1><a name="{{category.slug}}" href="{{category.slug}}/">{{ category.name | title }}</a></h1>
   {% for song in category.songs %}
     <article class="song">
       {% if not song.categories or song.categories[0][1] != category %}
         <h2><a href="#{{song.slug}}">{{song.title}}</a></h2>
       {% else %}
-      <h2><a name="{{song.slug}}" href="songs/{{song.slug}}.html">{{song.title}}</a></h2>
+      <h2><a name="{{song.slug}}" href="../songs/{{song.slug}}/">{{song.title}}</a></h2>
       <dl class="metadata">
         {% if song.see %}
           <dt>See also</dt>

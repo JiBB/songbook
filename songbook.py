@@ -337,6 +337,7 @@ class SiteBuilder:
                 mkdir_f(self.destination)
             mkdir_f(dir_path)
         def render_template(output_path, template_name, **context):
+            output_path = os.path.join(output_path, "index.html")
             try:
                 try:
                     template = self.templates.get_template(template_name)
@@ -362,12 +363,12 @@ class SiteBuilder:
 
         songs_dir = "songs"
         categories_dir = "categories"
-        render_template("songs.html", "songs.html", songbook=self.songbook)
-        render_template("categories.html", "categories.html", songbook=self.songbook)
+        render_template("songs", "songs.html", songbook=self.songbook)
+        render_template("categories", "categories.html", songbook=self.songbook)
         for category in self.songbook.categories.values():
-            render_template(os.path.join(categories_dir, "%s.html" % category.slug), "category.html", songbook=self.songbook, category=category)
+            render_template(os.path.join(categories_dir, "%s" % category.slug), "category.html", songbook=self.songbook, category=category)
         for song in self.songbook.songs:
-            render_template(os.path.join(songs_dir, "%s.html" % song.slug), "song.html", songbook=self.songbook, song=song)
+            render_template(os.path.join(songs_dir, "%s" % song.slug), "song.html", songbook=self.songbook, song=song)
 
     def copy_static(self):
         """Copy files and their directory structure from static directory to the output directory.
