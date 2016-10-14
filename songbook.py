@@ -363,6 +363,7 @@ class SiteBuilder:
 
         songs_dir = "songs"
         categories_dir = "categories"
+        render_template("", "index.html", songbook=self.songbook)
         render_template("songs", "songs.html", songbook=self.songbook)
         render_template("categories", "categories.html", songbook=self.songbook)
         for category in self.songbook.categories.values():
