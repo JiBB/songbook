@@ -1,5 +1,5 @@
 Title: Twinkle, Twinkle, Little Star
-Tags: star, lullaby
+Tags: lullaby
 Tune: Ah! vous dirai-je, maman
 Source: Jane Taylor's poem "The Star"
 Copyright: public domain

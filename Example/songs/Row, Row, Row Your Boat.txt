@@ -1,5 +1,5 @@
 Title: Row, Row, Row Your Boat
-Tags: boat, round
+Tags: round, boat
 
 Row, row, row your boat,
 Gently down the stream.
