@@ -11,7 +11,5 @@ One jumped into the pool
 Where it was nice and cool
 Then there were four green speckled frogs.
 
-_(Repeat with one fewer frog each time.)_
-
-_The final verse ends:_
-Then there were no speckled frogs.
+_(Repeat with one fewer frog each time, ending with:)_
+…Then there were no green speckled frogs.

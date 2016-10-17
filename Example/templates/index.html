@@ -6,8 +6,8 @@
   </header>
   <h2><a href="categories/">Categories:</a></h2>
   <ul>
-  {% for category in songbook.categories.values() %}
-    <li><a name="{{category.slug}}" href="categories/{{category.slug}}/">{{category.name}}</a></li>
+  {% for category in songbook.categories.values() | sort(attribute="name", case_sensitive=false) %}
+    <li><a name="{{category.slug}}" href="categories/{{category.slug}}/">{{category.name}}</a> ({{ category.songs|length }})</li>
   {% endfor %}
   </ul>
   <h2><a href="songs/">Songs:</a></h2>

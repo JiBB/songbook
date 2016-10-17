@@ -4,13 +4,13 @@
   <header>
     <h1>All Nursery Rhymes by Category</h1>
   </header>
-  {% for category in songbook.categories.values() %}
+  {% for category in songbook.categories.values() | sort(attribute="name", case_sensitive=false) %}
     <section>
     <h1><a name="{{category.slug}}" href="{{category.slug}}/">{{ category.name | title }}</a></h1>
   {% for song in category.songs %}
     <article class="song">
-      {% if not song.categories or song.categories[0][1] != category %}
-        <h2><a href="#{{song.slug}}">{{song.title}}</a></h2>
+      {% if song.categories[0][1] != category %}
+        <h2><a href="#{{song.slug}}">{{song.title}}</a> (found in "{{ song.categories[0][1].name | title }}")</h2>
       {% else %}
       <h2><a name="{{song.slug}}" href="../songs/{{song.slug}}/">{{song.title}}</a></h2>
       <dl class="metadata">
