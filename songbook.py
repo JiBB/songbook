@@ -15,7 +15,9 @@ import collections
 import http.server
 import posixpath
 import urllib
+import datetime
 import time
+import subprocess
 
 try:
     import markdown
@@ -303,8 +305,37 @@ class SiteBuilder:
                 logging.error("Source directory does not contain a %s subdirectory" % os.path.basename(required_path))
                 sys.exit(os.EX_NOINPUT)
         self.templates = jinja2.Environment(loader=jinja2.FileSystemLoader(self.templates_path))
+        self.templates.filters['datetimeformat'] = lambda value, format='%B %d, %Y, %-I:%M %p': value.strftime(format)
         self.copied_files = set()
         self.generated_files = set()
+        self.gather_metadata()
+
+    def gather_metadata(self):
+        self.metadata = {}
+        self.metadata["date"] = datetime.datetime.now()
+        self.metadata["version"] = __version__
+        # Gather # of parent commits, branch, sha, etc. from git repo (if present)
+        try:
+            common_args = {"cwd": self.source, "stderr": subprocess.DEVNULL}
+            version = subprocess.check_output(["git", "rev-list", "HEAD", "--count"], **common_args).decode('utf-8').strip()
+            sha     = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], **common_args).decode('utf-8').strip()
+            branch  = subprocess.check_output(["git", "symbolic-ref", "--short", "-q", "HEAD"], **common_args).decode('utf-8').strip()
+            dirty   = subprocess.run(["git", "diff-index", "--quiet", "HEAD", "--"], stdout=subprocess.DEVNULL, **common_args).returncode
+            long_version = version
+            if branch != "master":
+                long_version += "-" + branch
+            if dirty:
+                long_version += " (dirty)"
+            self.metadata["git"] = {}
+            self.metadata["git"]["version"] = version
+            self.metadata["git"]["long_version"] = long_version
+            self.metadata["git"]["sha"] = sha
+        except subprocess.CalledProcessError as error:
+            logging.info("Source directory is not (in) a git repository; no version info found.")
+            return
+        except OSError as error:
+            logging.warning("Can't run git to check for version information")
+            return
 
     def build_site(self):
         self.songbook = SongBook(self.songs_path)
@@ -345,7 +376,7 @@ class SiteBuilder:
                     logging.error("Required template not found: {0.message}".format(exception))
                     sys.exit(os.EX_NOINPUT)
                 try:
-                    html = template.render(**context)
+                    html = template.render(metadata=self.metadata, songbook=self.songbook, **context)
                 except jinja2.exceptions.TemplateNotFound as exception:
                     logging.error("Referenced template not found: {0.message}".format(exception))
                     sys.exit(os.EX_DATAERR)
@@ -363,13 +394,13 @@ class SiteBuilder:
 
         songs_dir = "songs"
         categories_dir = "categories"
-        render_template("", "index.html", songbook=self.songbook)
-        render_template("songs", "songs.html", songbook=self.songbook)
-        render_template("categories", "categories.html", songbook=self.songbook)
+        render_template("", "index.html")
+        render_template("songs", "songs.html")
+        render_template("categories", "categories.html")
         for category in self.songbook.categories.values():
-            render_template(os.path.join(categories_dir, "%s" % category.slug), "category.html", songbook=self.songbook, category=category)
+            render_template(os.path.join(categories_dir, "%s" % category.slug), "category.html", category=category)
         for song in self.songbook.songs:
-            render_template(os.path.join(songs_dir, "%s" % song.slug), "song.html", songbook=self.songbook, song=song)
+            render_template(os.path.join(songs_dir, "%s" % song.slug), "song.html", song=song)
 
     def copy_static(self):
         """Copy files and their directory structure from static directory to the output directory.
