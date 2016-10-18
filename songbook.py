@@ -142,6 +142,22 @@ class Song:
     def slug(self):
         return slugify(self.title) + getattr(self, "uniquing_string", "")
 
+    __bold_re = re.compile(r"(?:\*\*(.+?)\*\*)|(?:__(.+?)__)")
+    __italic_re = re.compile(r"(?:\*(.+?)\*)|(?:_(.+?)_)")
+    __unicode_alphanum_re = re.compile(r"\w", re.UNICODE)
+    @property
+    def first_line(self):
+        try:
+            return self._first_line
+        except:
+            for line in self.raw_lyrics.splitlines():
+                line = Song.__bold_re.sub("", line)
+                line = self.__italic_re.sub("", line)
+                line = line.strip()
+                if Song.__unicode_alphanum_re.search(line):
+                    return line
+        return "[%s]" % self.title
+
 
 class Category:
     def __init__(self, name):
@@ -408,6 +424,7 @@ class SiteBuilder:
         render_template("about", "about.html", optional=True)
         render_template("bytitle", "bytitle.html", optional=True)
         render_template("bycategory", "bycategory.html", optional=True)
+        render_template("firstlines", "firstlines.html", optional=True)
 
     def copy_static(self):
         """Copy files and their directory structure from static directory to the output directory.

@@ -104,6 +104,8 @@ Optional templates (rendered if present, but with no error if not found) include
 
 * `bycategory.html` — rendered to `/bycategory/` in the final website.  An optional listing of all the songs, sorted by category, if such an index isn't found in `index.html`.
 
+* `firstlines.html` — rendered to `/firstlines/` in the final website.  An optional listing of all the songs by their first lines (excluding **bold** or _italics_, assumed to be annotations) rather than their titles.
+
 Other templates in the directory will not be used directly, but can be used with the processed templates through [template inheritance](http://jinja.pocoo.org/docs/dev/templates/#template-inheritance) for content common to multiple templates. (E.g. the `common.html` template in the Example Songbook directory that other templates inherit from.)
 
 #### static
