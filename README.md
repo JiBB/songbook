@@ -80,11 +80,21 @@ becomes:
 
 #### templates
 
-The `templates` directory is required, and contains template files into which the songs and their tags are inserted when rendered.  These template files are html code with [Jinja](http://jinja.pocoo.org/docs/dev/templates/) templating system commands in them which will be expanded using the data from the songs parsed out of the `songs` directory.
+The `templates` directory is required, and contains template files into which the songs and their tags are inserted when rendered.  These template files are html code with [Jinja](http://jinja.pocoo.org/docs/dev/templates/) templating system commands in them which will be expanded using the data from the songs parsed out of the `songs` directory.  While suggestions are given below for the expected content of each file, all templates are processed with the same `songbook` and `metadata` passed in (although individual song and category pages are also passed a specific `song` or `category`), so the contents of each page is entirely up to the template's creator.
+
+For examples of the Jinja formatting commands, the data provided to the templates, and how to use these to create a website, see the examples in `Examples/templates`.
 
 The required templates are:
 
-* `songs.html` — Rendered to `songs.html` in the final website, to contain all the songs in alphabetical order by title.
+* `index.html` — Rendered to `/` in the final website, to contain all the songs in alphabetical order by title.
+
+* `songs.html` — Rendered to `/songs/` in the final website, should contain an entry for each song.
+
+* `categories.html` — Rendered to `/categories/` in the final website, should contain an entry for each unique category (one for each unique entry in any song's list of `Tags:`).
+
+* `song.html` — Rendered to `/songs/[song-title-slug]/` in the final website, once for each song, and containing it's metadata and lyrics.
+
+* `category.html` — Rendered to `/categories/[category-name-slug]/` in the final website, once for each category (from the `Tags:` fields in the songs), and containing the songs that fall in each category..
 
 Other templates in the directory will not be used directly, but can be used with the processed templates through [template inheritance](http://jinja.pocoo.org/docs/dev/templates/#template-inheritance) for content common to multiple templates. (E.g. the `common.html` template in the Example Songbook directory that other templates inherit from.)
 
