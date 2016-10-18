@@ -8,4 +8,4 @@ The text of these nursery rhymes is derived from [the relevant pages on Wikipedi
 
 ## License
 
-These example songs are licensed under the Creative Commons Attribution-ShareAlike License - see the [LICENSE](LICENSE) file for details
+Except as noted otherwise, the files for generating this website and the example songs are licensed under the Creative Commons Attribution-ShareAlike License - see the [LICENSE](LICENSE) file for details.

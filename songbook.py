@@ -367,14 +367,18 @@ class SiteBuilder:
             else:
                 mkdir_f(self.destination)
             mkdir_f(dir_path)
-        def render_template(output_path, template_name, **context):
+        def render_template(output_path, template_name, optional=False, **context):
             output_path = os.path.join(output_path, "index.html")
             try:
                 try:
                     template = self.templates.get_template(template_name)
                 except jinja2.exceptions.TemplateNotFound as exception:
-                    logging.error("Required template not found: {0.message}".format(exception))
-                    sys.exit(os.EX_NOINPUT)
+                    if optional:
+                        logging.debug("Optional template not found: {0.message}".format(exception))
+                        return
+                    else:
+                        logging.error("Required template not found: {0.message}".format(exception))
+                        sys.exit(os.EX_NOINPUT)
                 try:
                     html = template.render(metadata=self.metadata, songbook=self.songbook, **context)
                 except jinja2.exceptions.TemplateNotFound as exception:
@@ -401,6 +405,9 @@ class SiteBuilder:
             render_template(os.path.join(categories_dir, "%s" % category.slug), "category.html", category=category)
         for song in self.songbook.songs:
             render_template(os.path.join(songs_dir, "%s" % song.slug), "song.html", song=song)
+        render_template("about", "about.html", optional=True)
+        render_template("bytitle", "bytitle.html", optional=True)
+        render_template("bycategory", "bycategory.html", optional=True)
 
     def copy_static(self):
         """Copy files and their directory structure from static directory to the output directory.

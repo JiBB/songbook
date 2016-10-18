@@ -1,0 +1,19 @@
+{% extends "common.html" %}
+{% block title %}{{ super() }}—About{% endblock %}
+{% block content %}
+  <header>
+    <h1>About</h1>
+  </header>
+  <p>This is a selection of {{songbook.songs | count}} nursery rhymes, provided as an example Songbook project.</p>
+
+  <p>The text of these nursery rhymes is derived from
+     <a href="https://en.wikipedia.org/wiki/List_of_nursery_rhymes">the relevant pages on Wikipedia</a>,
+     accessed on June 30, 2016.</p>
+
+  <p>Except where otherwise noted, this website is licensed under the
+     <a href="https://creativecommons.org/licenses/by-sa/3.0/">Creative Commons Attribution-ShareAlike License</a>.
+
+  <hr>
+
+  <p>{% if metadata.git %}Version {{metadata.git.long_version}}, from commit <a href="https://github.com/JiBB/Songbook/commit/{{metadata.git.sha}}">{{metadata.git.sha}}</a>.  {% endif %}Generated on {{metadata.date|datetimeformat}} by <a href="https://github.com/JiBB/Songbook">Songbook</a> {{metadata.version}}.
+{% endblock content %}

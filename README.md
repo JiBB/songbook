@@ -96,6 +96,14 @@ The required templates are:
 
 * `category.html` — Rendered to `/categories/[category-name-slug]/` in the final website, once for each category (from the `Tags:` fields in the songs), and containing the songs that fall in each category..
 
+Optional templates (rendered if present, but with no error if not found) include:
+
+* `about.html` — rendered to `/about/` in the final website. Information about the site, rendered from a template to allow inclusion of build date, website version, number of songs, etc.
+
+* `bytitle.html` — rendered to `/bytitle/` in the final website.  An optional listing of all the songs by their titles, if such an index isn't found in `index.html`.
+
+* `bycategory.html` — rendered to `/bycategory/` in the final website.  An optional listing of all the songs, sorted by category, if such an index isn't found in `index.html`.
+
 Other templates in the directory will not be used directly, but can be used with the processed templates through [template inheritance](http://jinja.pocoo.org/docs/dev/templates/#template-inheritance) for content common to multiple templates. (E.g. the `common.html` template in the Example Songbook directory that other templates inherit from.)
 
 #### static
