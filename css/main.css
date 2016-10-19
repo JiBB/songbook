@@ -1,0 +1,70 @@
+/* Overall formatting */
+.wrapper {
+  width: 90%;
+  margin: 0% auto 0% 5%;
+}
+@media only screen and (min-width: 568px) {
+  .wrapper {
+    max-width: 40em;
+  }
+}
+/* Navigation menu */
+nav ul {
+  overflow: auto;
+  list-style-type: none;
+  padding: 0em;
+}
+
+nav ul li {
+  height: 2em;
+  float: left;
+  margin-right: 0px;
+  border-right: 1px solid lightgrey;
+  padding: 0 1em;
+}
+
+nav ul li:last-child {
+  border-right: none;
+}
+
+nav ul li a {
+  text-decoration: none;
+  color: grey;
+}
+
+nav ul li.active a {
+  font-weight: bold;
+  color: black;
+}
+
+/* Song formatting */
+
+.metadata dt {
+  float: left;
+  clear: left;
+  width: 7.5em;
+  text-align: right;
+  font-weight: bold;
+}
+.metadata dt:after {
+  content: ":";
+}
+.metadata dd {
+  margin: 0 0 0 8em;
+  padding: 0 0 0.5em 0;
+}
+.song {
+  margin: 0.5em;
+}
+.lyrics {
+  border-left: thin solid lightgrey;
+  padding-left: 0.5em;
+}
+.song:after {
+  content: "";
+  display: block;
+  height: 1px;
+  width: 40%;
+  margin: 1em 0em;
+  border-bottom: thin solid grey;
+}
