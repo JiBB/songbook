@@ -23,7 +23,7 @@ try:
     import markdown
     import jinja2
 except ImportError as error:
-    print("ERROR: The required package \"%s\" was not found, please check the installation instructions." % error.name, file=sys.stderr)
+    logging.error(" The required package \"%s\" was not found, please check the installation instructions." % error.name)
     sys.exit(-1)
 
 SONG_EXTENSION = ".txt"
@@ -302,10 +302,11 @@ class SongBook:
 
 class SiteBuilder:
     """Create a static website based on song files and templates read in."""
-    def __init__(self, source, destination, keep):
+    def __init__(self, source, destination, keep, base_path):
         self.source = source
         self.destination = destination
         self.keep = keep
+        self.base_path = base_path
 
         self.songs_path = os.path.join(self.source, "songs")
         self.templates_path = os.path.join(self.source, "templates")
@@ -542,7 +543,7 @@ class SiteBuilder:
 
 class Server:
     """A basic HTTP server that serves documents from a specific document root, not just the current directory."""
-    def __init__(self, document_root, port=8000):
+    def __init__(self, document_root, port=8000, base=None):
         class RootedHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             def translate_path(self, path):
                 """Translates a URL path to be a local filesystem path rooted at self.root_directory.
@@ -550,6 +551,14 @@ class Server:
                 Based on the SimpleHTTPRequestHandler implementation, but modified for a different root.
                 """
                 path = posixpath.normpath(urllib.parse.unquote(path))
+                if base:
+                    if path.startswith(base + posixpath.sep):
+                        path = path[len(base):]
+                    elif path == base:
+                        path = posixpath.sep
+                    else:
+                        self.send_error(403, "Only serving files under '%s'" % base)
+                        return "/dev/null/nonexistant" # Hack to make opening the path fail.
                 words = path.split('/')
                 words = filter(None, words)
                 path = document_root
@@ -591,6 +600,8 @@ def main():
     parser.add_argument("--keep", help="Paths (relative to the destination) that shouldn't be cleared even if not overwritten by %(prog)s",
                         action="append", default=[])
 
+    parser.add_argument("--base", help="A directory from which the website expects to be served.  Provided for inclusion in "
+                        "templates as well as used when serving the website for testing.", default=posixpath.sep)
     parser.add_argument("--serve", help="Start a basic webserver for testing after building, default port is %(const)d.  Implies --watch.",
                         dest="port", type=int, const=8000, nargs="?", default=None)
     watch_args = parser.add_mutually_exclusive_group()
@@ -604,6 +615,11 @@ def main():
     # If serving the created site, turn on watching unless explicitly disabled.
     if args.port != None and args.watch != False:
         args.watch = True
+    args.base = args.base.strip(posixpath.sep)
+    if args.base:
+        args.base = posixpath.sep + args.base
+    else:
+        args.base = None
 
     log_level = logging.ERROR if args.quiet else logging.WARNING
     if args.verbose == 1:
@@ -626,7 +642,7 @@ def main():
 
     observer = None
     try:
-        site_builder = SiteBuilder(args.source, args.destination, args.keep)
+        site_builder = SiteBuilder(args.source, args.destination, args.keep, args.base)
         site_builder.build_site()
 
         if args.watch:
@@ -638,7 +654,7 @@ def main():
             observer.start()
 
         if args.port != None:
-            server = Server(args.destination, args.port)
+            server = Server(args.destination, args.port, base=args.base)
             logging.warning("Starting webserver on port %d.  ^C to kill..." % server.port)
             server.serve()
         elif args.watch:

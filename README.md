@@ -155,6 +155,12 @@ The app can also start a basic webserver after generating the site, serving the 
 songbook --serve [PORT]
 ```
 
+If the site is intended to be served from a location not at the root of the server (e.g a GitHub project page), a base path can be specified.  This will be availible in the templates as `{{ base_path }}`, for constructing urls relative to the document root (e.g. `href="{{ base_path }}/songs/"`), and will be required in urls sent to the built in server.  The command below will result in the webpage being served under [http://localhost:8000/somewhere/] rather than at the root level.
+
+```
+songbook --serve --base somewhere
+```
+
 
 ## Authors
 
