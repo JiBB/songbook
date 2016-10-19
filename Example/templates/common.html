@@ -8,6 +8,19 @@
     <link rel="stylesheet" href="{{base_path}}/css/main.css">
 </head>
 <body>
+  <nav>
+    <ul>
+      {% macro navitem(name, path) -%}
+        <li{% if path == url %} class="active"{% endif %}><a href="{{ base_path }}{{ path }}">{{ name }}</a></li>
+      {%- endmacro %}
+      {{ navitem("Home", "/") }}
+      {{ navitem("Categories", "/categories/") }} 
+      {{ navitem("Songs", "/songs/") }}
+      {{ navitem("By Category", "/bycategory/") }}
+      {{ navitem("First Lines", "/firstlines/") }}
+      {{ navitem("About", "/about/") }}
+    </ul>
+  </nav>
   {% block content %}{% endblock %}
 </body>
 <html>

@@ -385,7 +385,7 @@ class SiteBuilder:
                 mkdir_f(self.destination)
             mkdir_f(dir_path)
         def render_template(output_path, template_name, optional=False, **context):
-            output_path = os.path.join(output_path, "index.html")
+            output_filename = os.path.join(output_path, "index.html")
             try:
                 try:
                     template = self.templates.get_template(template_name)
@@ -397,7 +397,8 @@ class SiteBuilder:
                         logging.error("Required template not found: {0.message}".format(exception))
                         sys.exit(os.EX_NOINPUT)
                 try:
-                    html = template.render(metadata=self.metadata, songbook=self.songbook, **context)
+                    url = posixpath.sep + (output_path + posixpath.sep if output_path else "")
+                    html = template.render(metadata=self.metadata, songbook=self.songbook, base_path=self.base_path, url=url, **context)
                 except jinja2.exceptions.TemplateNotFound as exception:
                     logging.error("Referenced template not found: {0.message}".format(exception))
                     sys.exit(os.EX_DATAERR)
@@ -405,13 +406,13 @@ class SiteBuilder:
                 exception.translated = False # Since we're skipping the information translated into the traceback...
                 logging.error("Error rendering template '{0}':\n  {1}".format(template_name, exception))
                 sys.exit(os.EX_DATAERR)
-            full_output_path = os.path.join(self.destination, output_path)
+            full_output_path = os.path.join(self.destination, output_filename)
             mkdir_f_p(os.path.dirname(full_output_path))
             if os.path.isdir(full_output_path):
                 shutils.rmtree(full_output_path)
             with open(full_output_path, 'w') as output_file:
                 output_file.write(html)
-            self.created_files.add(output_path)
+            self.created_files.add(output_filename)
 
         songs_dir = "songs"
         categories_dir = "categories"

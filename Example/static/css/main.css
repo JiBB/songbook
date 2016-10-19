@@ -1,3 +1,31 @@
+nav ul {
+  overflow: auto;
+  list-style-type: none;
+  padding: 0em
+}
+
+nav ul li {
+  height: 2em;
+  float: left;
+  margin-right: 0px;
+  border-right: 1px solid lightgrey;
+  padding: 0 1em;
+}
+
+nav ul li:last-child {
+  border-right: none;
+}
+
+nav ul li a {
+  text-decoration: none;
+  color: grey;
+}
+
+nav ul li.active a {
+  font-weight: bold;
+  color: black;
+}
+
 .metadata dt {
   float: left;
   clear: left;
