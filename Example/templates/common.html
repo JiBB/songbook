@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{{base_path}}/css/main.css">
 </head>
 <body>
+<div class="wrapper">
   <nav>
     <ul>
       {% macro navitem(name, path) -%}
@@ -22,6 +23,7 @@
     </ul>
   </nav>
   {% block content %}{% endblock %}
+</div>
 </body>
 <html>
 

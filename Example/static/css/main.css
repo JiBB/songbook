@@ -1,7 +1,18 @@
+/* Overall formatting */
+.wrapper {
+  width: 90%;
+  margin: 0% auto 0% 5%;
+}
+@media only screen and (min-width: 568px) {
+  .wrapper {
+    max-width: 40em;
+  }
+}
+/* Navigation menu */
 nav ul {
   overflow: auto;
   list-style-type: none;
-  padding: 0em
+  padding: 0em;
 }
 
 nav ul li {
@@ -26,10 +37,12 @@ nav ul li.active a {
   color: black;
 }
 
+/* Song formatting */
+
 .metadata dt {
   float: left;
   clear: left;
-  width: 7em;
+  width: 7.5em;
   text-align: right;
   font-weight: bold;
 }
@@ -37,7 +50,7 @@ nav ul li.active a {
   content: ":";
 }
 .metadata dd {
-  margin: 0 0 0 7.5em;
+  margin: 0 0 0 8em;
   padding: 0 0 0.5em 0;
 }
 .song {
