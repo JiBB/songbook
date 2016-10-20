@@ -663,7 +663,7 @@ def main():
             while True:
                 time.sleep(1)
     except SystemExit:
-        pass # We're intentionally exiting, no logging required.
+        raise
     except KeyboardInterrupt:
         logging.info("Keyboard interrupt, terminating application.")
     except:
