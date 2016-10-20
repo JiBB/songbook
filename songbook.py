@@ -336,7 +336,12 @@ class SiteBuilder:
             common_args = {"cwd": self.source, "stderr": subprocess.DEVNULL}
             version = subprocess.check_output(["git", "rev-list", "HEAD", "--count"], **common_args).decode('utf-8').strip()
             sha     = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], **common_args).decode('utf-8').strip()
-            branch  = subprocess.check_output(["git", "symbolic-ref", "--short", "-q", "HEAD"], **common_args).decode('utf-8').strip()
+            try:
+                branch  = subprocess.check_output(["git", "symbolic-ref", "--short", "-q", "HEAD"], **common_args).decode('utf-8').strip()
+            except subprocess.CalledProcessError as error:
+                branch = "detached-HEAD"
+            # Opt. override, e.g. for a CI that always gets a detached head (GIT_BRANCH=$TRAVIS_BRANCH).
+            branch = os.getenv("GIT_BRANCH", branch)
             dirty   = subprocess.run(["git", "diff-index", "--quiet", "HEAD", "--"], stdout=subprocess.DEVNULL, **common_args).returncode
             long_version = version
             if branch != "master":
