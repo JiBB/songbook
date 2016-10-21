@@ -689,7 +689,7 @@ def main():
         logging.info("Keyboard interrupt, terminating application.")
     except:
         logging.exception("Failed with unhandled exception:")
-        raise
+        sys.exit(1)
     finally:
         if observer:
             observer.stop()
