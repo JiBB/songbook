@@ -185,6 +185,26 @@ class SongBook:
         self.songs = self.songs_from_directory(songs_path)
         logging.info("Parsed %d songs", len(self.songs))
         self.link_songs_and_categories()
+        self.songs.sort(key=lambda song: song.title.lower())
+        self.categories.sort(key=lambda cat: cat.name.lower())
+        for categories in self.categories:
+            categories.songs.sort(key=lambda song: song.title.lower())
+
+        # Format cat names & song counts to fit in columns on a 80 char screen.
+        strs = ["%s: %d" % (category.name, len(category.songs)) for category in self.categories]
+        maxlen = max([len(s) for s in strs])
+        numcol = max(80 // (maxlen + 2), 1)
+        maxlen = maxlen + (80 - numcol * maxlen) // (numcol - 1)
+        if numcol > 1:
+            strs = [s.ljust(maxlen) for s in strs]
+        lencol = (len(strs) + numcol - 1) // numcol
+        strs.extend([""] * (numcol * lencol - len(strs)))
+        linelists = zip(*[strs[lencol*col:lencol*(col+1)] for col in range(numcol)])
+        text = "\n".join(["  " + "".join(linelist).strip() for linelist in linelists])
+        logging.info("Songs in %d categories:\n%s" % (len(self.categories), text))
+        uncategorized = [song.title for song in self.songs if not song.categories]
+        if uncategorized:
+            logging.info("%d songs have no categories: %s" % (len(uncategorized), uncategorized))
 
     def songs_from_directory(self, path):
         """Return an array of Song objects for all song files in a given directory."""
@@ -294,12 +314,6 @@ class SongBook:
                 category = category_for_tag(tag)
                 song.categories.append((tag, category))
                 category.songs.append(song)
-
-        logging.info("Songs in %d categories: %s" % (len(self.categories),
-                                                     {slug:len(category.songs) for slug, category in self.categories.items()}))
-        uncategorized = [song.title for song in self.songs if not song.categories]
-        if uncategorized:
-            logging.info("%d songs have no categories: %s" % (len(uncategorized), uncategorized))
 
 
 class SiteBuilder:
