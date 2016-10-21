@@ -658,7 +658,7 @@ def main():
             import watchdog.observers
             import watchdog.events
         except ImportError as error:
-            logging.warning("Watching for changes requires the 'watchdog' module; lease check the installation instructions. "\
+            logging.warning("Watching for changes requires the 'watchdog' module; please check the installation instructions. "\
                             "Disabling watching until module is installed (or use --nowatch to avoid this warning)")
             args.watch = False
 

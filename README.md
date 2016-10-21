@@ -11,6 +11,7 @@ Songbook requires Python 3, as well as the following packages:
 
 * [Jinja2](http://jinja.pocoo.org)
 * [Markdown](http://pythonhosted.org/Markdown/)
+* [Watchdog](http://pythonhosted.org/watchdog/) (optional, required for `--watch` live updates)
 
 ### Installing
 
@@ -26,6 +27,7 @@ Then use pip to install the required libraries:
 ```
 pip3 install jinja2
 pip3 install Markdown
+pip3 install watchdog
 ```
 
 For a test, try running Songbook on the provided example data:
