@@ -1,0 +1,65 @@
+# Configure travis to update the Songbook example site on gh-pages.
+# For a site in it's own repo, see deploy/example.travis.yml.
+language: "python"
+python: "3.5"
+cache: "pip"
+install:
+    - pip install jinja2
+    - pip install Markdown
+
+branches:
+    only:
+        - master
+git:
+    depth: 9999999 # Needed for displaying version info in the website.
+
+env:
+    global:
+        - COMMIT_AUTHOR_EMAIL: JiBBerish@gmail.com
+        - DEPLOY_KEY: deploy/songbook_deploy_key
+        - ENCRYPTION_LABEL: 5a455fbf1b54
+        # Generate a new SSH key, set it as a deploy key for the repo, then
+        # use travis encrypt-file to create ${DEPLOY_KEY}.enc, add to repo.
+
+before_install:
+    - export TZ=America/Denver
+
+before_script:
+    # Since Travis gets a detached HEAD checkout...
+    - "export GIT_BRANCH=$TRAVIS_BRANCH"
+    # Unencrypt the GitHub deploy key for pushing to the gh-pages branch
+    - "ENCRYPTED_KEY_VAR=\"encrypted_${ENCRYPTION_LABEL}_key\""
+    - "ENCRYPTED_IV_VAR=\"encrypted_${ENCRYPTION_LABEL}_iv\""
+    - "ENCRYPTED_KEY=${!ENCRYPTED_KEY_VAR}"
+    - "ENCRYPTED_IV=${!ENCRYPTED_IV_VAR}"
+    - "openssl aes-256-cbc -K $ENCRYPTED_KEY -iv $ENCRYPTED_IV -in ${DEPLOY_KEY}.enc -out ${DEPLOY_KEY} -d"
+    - "chmod 600 ${DEPLOY_KEY}"
+    - "eval `ssh-agent -s`"
+    - "ssh-add ${DEPLOY_KEY}"
+    # ...then get the existing gh-pages branch to update, or create an
+    # orphan branch if needed
+    - "REPO=`git config remote.origin.url`"
+    - "SSH_REPO=${REPO/https:\\/\\/github.com\\//git@github.com:}"
+    - >
+        git clone --branch=gh-pages --depth=1 ${SSH_REPO} Example/site ||
+           (git clone --depth=1 ${SSH_REPO} Example/site &&
+            git -C Example/site checkout --orphan gh-pages &&
+            git -C Example/site reset --hard)
+
+script:
+    - "./songbook.py --source Example --keep .git --base \"$(basename $(pwd))\" -v"
+    # Remove --base \"$(basename $(pwd))\" if you're using a custom domain
+
+after_success:
+    - "if [ \"$TRAVIS_PULL_REQUEST\" != 'false' ]; then echo 'Skipping deploy for pull requests.'; fi"
+    - "SHA=`git rev-parse --short --verify HEAD`"
+    - "VER=`git rev-list HEAD --count`"
+    - "pushd Example/site"
+    - "if [ -z `git status --porcelain` ]; then echo 'No changes to the output on this push; exiting.'; exit 0; fi"
+    - "git add ."
+    - "git config user.name \"Travis CI\""
+    - "git config user.email \"$COMMIT_AUTHOR_EMAIL\""
+    - "git config --global push.default simple"
+    - "git commit -a -m \"Travis-ci built site: ${VER} from ${SHA}.\""
+    - "git push origin gh-pages"
+    - "popd"
