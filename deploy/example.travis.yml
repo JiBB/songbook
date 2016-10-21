@@ -1,0 +1,70 @@
+# Configure travis to update gh-pages w/ the generated site.
+# Copy to .travis.yml and update the environment variables below.
+# You'll need to set up your repo w/ Travis-ci, and add a deployment
+# key to your repo and encrypt it w/ travis encrypt-file before adding
+# it to your repository.
+
+language: "python"
+python: "3.5"
+cache: "pip"
+install:
+    - pip install jinja2
+    - pip install Markdown
+    - "git clone https://github.com/JiBB/songbook.git"
+
+branches:
+    only:
+        - master
+git:
+    depth: 9999999 # Needed for displaying version info in the website.
+
+env:
+    global:
+        - COMMIT_AUTHOR_EMAIL: <your email address here>
+        - DEPLOY_KEY: deploy/deploy_key # or whatever you name it.
+        - ENCRYPTION_LABEL: <taken from travis encrypt-file output>
+        # Generate a new SSH key, set it as a deploy key for the repo, then
+        # use travis encrypt-file to create ${DEPLOY_KEY}.enc, add to repo.
+
+before_install:
+    - export TZ=America/Denver
+
+before_script:
+    # Since Travis gets a detached HEAD checkout...
+    - "export GIT_BRANCH=$TRAVIS_BRANCH"
+    # Unencrypt the GitHub deploy key for pushing to the gh-pages branch
+    - "ENCRYPTED_KEY_VAR=\"encrypted_${ENCRYPTION_LABEL}_key\""
+    - "ENCRYPTED_IV_VAR=\"encrypted_${ENCRYPTION_LABEL}_iv\""
+    - "ENCRYPTED_KEY=${!ENCRYPTED_KEY_VAR}"
+    - "ENCRYPTED_IV=${!ENCRYPTED_IV_VAR}"
+    - "openssl aes-256-cbc -K $ENCRYPTED_KEY -iv $ENCRYPTED_IV -in ${DEPLOY_KEY}.enc -out ${DEPLOY_KEY} -d"
+    - "chmod 600 ${DEPLOY_KEY}"
+    - "eval `ssh-agent -s`"
+    - "ssh-add ${DEPLOY_KEY}"
+    # ...then get the existing gh-pages branch to update, or create an
+    # orphan branch if needed
+    - "REPO=`git config remote.origin.url`"
+    - "SSH_REPO=${REPO/https:\\/\\/github.com\\//git@github.com:}"
+    - >
+        git clone --branch=gh-pages --depth=1 ${SSH_REPO} site ||
+           (git clone --depth=1 ${SSH_REPO} site &&
+            git -C site checkout --orphan gh-pages &&
+            git -C site reset --hard)
+
+
+script:
+    - "songbook/songbook.py --keep .git --base \"$(basename $(pwd))\" -v"
+    # Remove --base \"$(basename $(pwd))\" if you're using a custom domain
+
+after_success:
+    - "SHA=`git rev-parse --short --verify HEAD`"
+    - "VER=`git rev-list HEAD --count`"
+    - "pushd site"
+    - "if [ -z `git status --porcelain` ]; then echo 'No changes to the output on this push; exiting.'; exit 0; fi"
+    - "git add ."
+    - "git config user.name \"Travis CI\""
+    - "git config user.email \"$COMMIT_AUTHOR_EMAIL\""
+    - "git config --global push.default simple"
+    - "git commit -a -m \"Travis-ci built site: ${VER} from ${SHA}.\""
+    - "git push origin gh-pages"
+    - "popd"
