@@ -236,11 +236,13 @@ class SongBook:
                     category_names[category_slug] = collections.Counter()
                 category_names[category_slug][category_name] += 1
         # Create 1 category/slug, w/ most common name.
-        self.categories = {}
+        self.categories = []
+        categories_by_slug = {}
         for slug, names in category_names.items():
             most_common_name = names.most_common(1)[0][0]
             category = Category(most_common_name)
-            self.categories[slug] = category
+            self.categories.append(category)
+            categories_by_slug[slug] = category
 
         # Helper functions for looking up songs/categories.
         def song_for_title(title):
@@ -277,7 +279,7 @@ class SongBook:
             
             Category names can differ slightly (capitalization, punctuation) as long as they have the same slug.
             """
-            return self.categories.get(slugify(name), None)
+            return categories_by_slug.get(slugify(name), None)
 
         # Set song.see and song.categories w/ correct referenced objects
         for song in self.songs:
@@ -424,7 +426,7 @@ class SiteBuilder:
         render_template("", "index.html")
         render_template("songs", "songs.html")
         render_template("categories", "categories.html")
-        for category in self.songbook.categories.values():
+        for category in self.songbook.categories:
             render_template(os.path.join(categories_dir, "%s" % category.slug), "category.html", category=category)
         for song in self.songbook.songs:
             render_template(os.path.join(songs_dir, "%s" % song.slug), "song.html", song=song)

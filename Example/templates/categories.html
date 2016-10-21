@@ -4,7 +4,7 @@
   <header>
     <h1>All Nursery Rhymes by Category</h1>
   </header>
-  {% for category in songbook.categories.values() | sort(attribute="name", case_sensitive=false) %}
+  {% for category in songbook.categories %}
     <section>
     <h1><a name="{{category.slug}}" href="{{category.slug}}/">{{ category.name | title }}</a></h1>
   {% for song in category.songs %}
