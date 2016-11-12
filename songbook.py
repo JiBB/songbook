@@ -194,7 +194,7 @@ class SongBook:
         strs = ["%s: %d" % (category.name, len(category.songs)) for category in self.categories]
         maxlen = max([len(s) for s in strs])
         numcol = max(80 // (maxlen + 2), 1)
-        maxlen = maxlen + (80 - numcol * maxlen) // (numcol - 1)
+        maxlen = maxlen + (80 - 2 - numcol * maxlen) // (numcol - 1)
         if numcol > 1:
             strs = [s.ljust(maxlen) for s in strs]
         lencol = (len(strs) + numcol - 1) // numcol
