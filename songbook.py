@@ -322,7 +322,7 @@ class SiteBuilder:
         self.source = source
         self.destination = destination
         self.keep = keep
-        self.base_path = base_path
+        self.base_path = base_path if base_path else ""
 
         self.songs_path = os.path.join(self.source, "songs")
         self.templates_path = os.path.join(self.source, "templates")
